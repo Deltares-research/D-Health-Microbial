@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +10,8 @@ import numpy as np
 import rasterio
 import requests
 from rasterio.mask import mask as rio_mask
+
+logger = logging.getLogger(__name__)
 
 WORLDPOP_BASE = "https://data.worldpop.org/GIS/AgeSex_structures"
 WORLDPOP_CRS = "EPSG:4326"
@@ -60,8 +63,10 @@ def _build_url(country: str, year: int, age: str, sex: str, cfg: WorldPopConfig)
 def _download_raster(url: str, dest: Path) -> Path | None:
     """Stream-download a single raster. Returns None on 404."""
     dest.parent.mkdir(parents=True, exist_ok=True)
+    logger.debug("GET %s", url)
     with requests.get(url, stream=True, timeout=120) as r:
         if r.status_code == 404:
+            logger.debug("404 %s", url)
             return None
         r.raise_for_status()
         tmp = dest.with_suffix(dest.suffix + ".part")
@@ -70,6 +75,7 @@ def _download_raster(url: str, dest: Path) -> Path | None:
                 if chunk:
                     f.write(chunk)
         tmp.replace(dest)
+    logger.debug("Saved %s (%d bytes)", dest.name, dest.stat().st_size)
     return dest
 
 
@@ -202,11 +208,20 @@ def get_population_data(
     iso_lower = country.lower()
 
     clip_geoms = _normalize_clip(clip)
+    n_expected = len(child_ages + adult_ages) * len(SEXES)
+    logger.info(
+        "Fetching WorldPop %s %d (%s, %s) — %d files, clip=%s",
+        country.upper(), year, cfg.release, cfg.resolution,
+        n_expected, "yes" if clip_geoms else "no",
+    )
     missing: list[str] = []
 
     def fetch_group(
         ages: Sequence[str], label: str, tmpdir: Path
     ) -> tuple[np.ndarray, dict]:
+        n = len(ages) * len(SEXES)
+        logger.info("Downloading %s rasters (%d files: %d age bins × %d sexes)",
+                    label, n, len(ages), len(SEXES))
         total: np.ndarray | None = None
         profile: dict | None = None
         for age in ages:
@@ -230,6 +245,7 @@ def get_population_data(
                 f"No {label} rasters could be downloaded for {country} {year}. "
                 f"All requests returned 404. First: {first_missing}"
             )
+        logger.info("Aggregated %s: %s, sum=%.0f", label, total.shape, total.sum())
         return total, profile
 
     with tempfile.TemporaryDirectory(prefix="d_health_pop_") as td:
@@ -248,10 +264,10 @@ def get_population_data(
         dst.descriptions = ("children_0_9", "adults_10_plus", "total")
 
     if missing:
-        print(
-            f"[get_population_data] {len(missing)} of "
-            f"{len(child_ages + adult_ages) * len(SEXES)} rasters were missing "
-            f"(404). Output bands sum the available ones."
+        logger.warning(
+            "%d of %d rasters were missing (404). Output bands sum the available ones.",
+            len(missing), n_expected,
         )
+    logger.info("Wrote %s (%.1f MB)", out_path, out_path.stat().st_size / 1e6)
 
     return out_path

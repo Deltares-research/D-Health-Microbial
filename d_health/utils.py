@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +9,8 @@ from rasterio.enums import Resampling
 from rasterio.warp import reproject, transform_bounds
 from rasterio.windows import Window, from_bounds
 from rasterio.windows import transform as window_transform
+
+logger = logging.getLogger(__name__)
 
 
 def align_flood_and_population(
@@ -61,9 +64,14 @@ def align_flood_and_population(
             f"Unknown resampling {resampling!r}. Valid: {valid}"
         ) from exc
 
+    logger.info(
+        "Aligning %s onto grid of %s (resampling=%s)",
+        flood_path.name, population_path.name, resampling,
+    )
     with rasterio.open(flood_path) as flood, rasterio.open(population_path) as pop:
         if flood.crs != pop.crs:
             flood_bounds_in_pop = transform_bounds(flood.crs, pop.crs, *flood.bounds)
+            logger.debug("Reprojected flood bounds %s → %s", flood.crs, pop.crs)
         else:
             flood_bounds_in_pop = flood.bounds
 
@@ -83,6 +91,10 @@ def align_flood_and_population(
         target_transform = window_transform(win, pop.transform)
         target_height = int(win.height)
         target_width = int(win.width)
+        logger.debug(
+            "Target grid: %d × %d @ %s in %s",
+            target_height, target_width, pop.res, pop.crs,
+        )
 
         flood_nodata = flood.nodata if flood.nodata is not None else np.nan
         flood_dst = np.full(
@@ -131,6 +143,8 @@ def align_flood_and_population(
             if pop.descriptions:
                 dst.descriptions = pop.descriptions
 
+    logger.info("Wrote aligned flood: %s", flood_out)
+    logger.info("Wrote clipped pop:   %s", pop_out)
     return flood_out, pop_out
 
 
