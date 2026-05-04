@@ -1,0 +1,71 @@
+# Pixi
+.pixi/
+# (commit pixi.lock — it's the reproducibility anchor)
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+*.egg
+pip-wheel-metadata/
+
+# Packaging / installer caches
+.eggs/
+MANIFEST
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+report.xml
+
+# Type / lint caches
+.mypy_cache/
+.pyright/
+.ruff_cache/
+.pytype/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environments
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# Claude Code (per-user settings; commit shared .claude/settings.json if you have one)
+.claude/settings.local.json
+
+# Local data / outputs (uncomment if you start dropping large files into the repo)
+# data/
+# outputs/
+*.tif
+*.tiff
+*.nc
+*.zarr/

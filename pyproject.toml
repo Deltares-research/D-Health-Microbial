@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "d_health"
+description = "Floods and Health Tool: E. coli emissions, exposure, and risk modelling."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "numpy",
+    "rasterio",
+    "pyyaml",
+    "dask",
+    "requests",
+    "gdal",
+    "openturns",
+    "matplotlib",
+    "tifffile",
+    "utm",
+    "salib",
+    "seaborn",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+notebook = [
+    "jupyter",
+    "ipykernel",
+]
+
+### setuptools ###
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.dynamic.version]
+attr = "d_health.__version__"
+
+[tool.setuptools.packages.find]
+include = ["d_health", "d_health.*"]
+
+### pixi ###
+[tool.pixi.workspace]
+name = "d_health"
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[tool.pixi.dependencies]
+python = "3.12.*"
+gdal = "*"
+rasterio = "*"
+openturns = "*"
+
+[tool.pixi.feature.editable.pypi-dependencies]
+d_health = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { features = ["notebook", "editable"] }
