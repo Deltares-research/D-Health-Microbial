@@ -13,46 +13,56 @@ from rasterio.windows import transform as window_transform
 logger = logging.getLogger(__name__)
 
 
-def align_flood_and_population(
-    flood_path: Path | str,
-    population_path: Path | str,
+def align_rasters(
+    input_path: Path | str,
+    target_path: Path | str,
     output_dir: Path | str,
     *,
     resampling: str = "average",
+    aligned_input_name: str | None = None,
+    clipped_target_name: str | None = None,
 ) -> tuple[Path, Path]:
-    """Align a fine-resolution flood-depth raster onto the WorldPop 100m grid.
+    """Reproject ``input_path`` onto the grid of ``target_path`` and clip
+    ``target_path`` to the overlap.
 
-    The flood raster is reprojected onto the population raster's pixel grid
-    (CRS, transform, resolution) using ``resampling`` (default: ``"average"``,
-    which encodes ``flooded_fraction × mean_depth_when_flooded`` for each
-    coarse cell). The population raster is window-clipped to the same bounds.
-    Both outputs share an identical grid, so downstream code can do cell-wise
-    arithmetic without further reprojection.
+    The input raster is reprojected onto the target raster's pixel grid
+    (CRS, transform, resolution) using ``resampling``. The target raster is
+    window-clipped to the same bounds. Both outputs share an identical grid,
+    so downstream code can do cell-wise arithmetic without further
+    reprojection.
 
-    Output extent = the flood raster's footprint reprojected into the
-    population CRS, snapped outwards to whole population pixels.
+    Output extent = the input raster's footprint reprojected into the target
+    CRS, snapped outwards to whole target pixels.
 
     Parameters
     ----------
-    flood_path
-        Path to the source flood-depth raster (single band, depth in meters).
-    population_path
-        Path to a WorldPop raster (any band count) defining the target grid.
+    input_path
+        Path to the raster to reproject (any band count).
+    target_path
+        Path to the raster whose grid (CRS, transform, resolution) defines
+        the output grid.
     output_dir
         Directory to write the two aligned outputs into. Created if missing.
     resampling
-        Name of a ``rasterio.enums.Resampling`` member (e.g. ``"average"``,
-        ``"max"``, ``"bilinear"``). Use ``"average"`` for risk-mean exposure;
-        ``"max"`` for worst-case.
+        Name of a ``rasterio.enums.Resampling`` member. Pick based on what
+        the input represents: ``"average"`` for fractional / mean quantities,
+        ``"max"`` for worst-case, ``"bilinear"`` for continuous fields,
+        ``"nearest"`` for categorical.
+    aligned_input_name
+        Filename for the reprojected input. Defaults to
+        ``f"{input_path.stem}_aligned.tif"``.
+    clipped_target_name
+        Filename for the clipped target. Defaults to
+        ``f"{target_path.stem}_clipped.tif"``.
 
     Returns
     -------
-    (aligned_flood_path, clipped_population_path)
-        Both rasters sit on the same grid as ``population_path`` (resolution,
-        CRS, transform), restricted to the flood footprint.
+    (aligned_input_path, clipped_target_path)
+        Both rasters sit on the same grid as ``target_path`` (resolution,
+        CRS, transform), restricted to the input footprint.
     """
-    flood_path = Path(flood_path)
-    population_path = Path(population_path)
+    input_path = Path(input_path)
+    target_path = Path(target_path)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -66,86 +76,92 @@ def align_flood_and_population(
 
     logger.info(
         "Aligning %s onto grid of %s (resampling=%s)",
-        flood_path.name, population_path.name, resampling,
+        input_path.name, target_path.name, resampling,
     )
-    with rasterio.open(flood_path) as flood, rasterio.open(population_path) as pop:
-        if flood.crs != pop.crs:
-            flood_bounds_in_pop = transform_bounds(flood.crs, pop.crs, *flood.bounds)
-            logger.debug("Reprojected flood bounds %s → %s", flood.crs, pop.crs)
+    with rasterio.open(input_path) as src, rasterio.open(target_path) as tgt:
+        if src.crs != tgt.crs:
+            src_bounds_in_tgt = transform_bounds(src.crs, tgt.crs, *src.bounds)
+            logger.debug("Reprojected input bounds %s → %s", src.crs, tgt.crs)
         else:
-            flood_bounds_in_pop = flood.bounds
+            src_bounds_in_tgt = src.bounds
 
         win = (
-            from_bounds(*flood_bounds_in_pop, transform=pop.transform)
+            from_bounds(*src_bounds_in_tgt, transform=tgt.transform)
             .round_offsets(op="floor")
             .round_lengths(op="ceil")
         )
-        win = _intersect_window(win, pop.width, pop.height)
+        win = _intersect_window(win, tgt.width, tgt.height)
         if win.width <= 0 or win.height <= 0:
             raise ValueError(
-                "Flood and population rasters do not overlap "
-                f"(flood bounds in pop CRS: {flood_bounds_in_pop}, "
-                f"pop bounds: {pop.bounds})."
+                "Input and target rasters do not overlap "
+                f"(input bounds in target CRS: {src_bounds_in_tgt}, "
+                f"target bounds: {tgt.bounds})."
             )
 
-        target_transform = window_transform(win, pop.transform)
+        target_transform = window_transform(win, tgt.transform)
         target_height = int(win.height)
         target_width = int(win.width)
         logger.debug(
             "Target grid: %d × %d @ %s in %s",
-            target_height, target_width, pop.res, pop.crs,
+            target_height, target_width, tgt.res, tgt.crs,
         )
 
-        flood_nodata = flood.nodata if flood.nodata is not None else np.nan
-        flood_dst = np.full(
-            (target_height, target_width), flood_nodata, dtype=np.float32
+        src_nodata = src.nodata if src.nodata is not None else np.nan
+        src_indexes = list(src.indexes)
+        input_dst = np.full(
+            (src.count, target_height, target_width), src_nodata, dtype=np.float32
         )
         reproject(
-            source=rasterio.band(flood, 1),
-            destination=flood_dst,
-            src_transform=flood.transform,
-            src_crs=flood.crs,
-            src_nodata=flood.nodata,
+            source=rasterio.band(src, src_indexes),
+            destination=input_dst,
+            src_transform=src.transform,
+            src_crs=src.crs,
+            src_nodata=src.nodata,
             dst_transform=target_transform,
-            dst_crs=pop.crs,
-            dst_nodata=flood_nodata,
+            dst_crs=tgt.crs,
+            dst_nodata=src_nodata,
             resampling=resampling_method,
         )
 
-        flood_out = output_dir / f"{flood_path.stem}_on_pop_grid.tif"
-        flood_profile = {
+        input_out = output_dir / (
+            aligned_input_name or f"{input_path.stem}_aligned.tif"
+        )
+        input_profile = {
             "driver": "GTiff",
-            "count": 1,
+            "count": src.count,
             "dtype": "float32",
-            "crs": pop.crs,
+            "crs": tgt.crs,
             "transform": target_transform,
             "width": target_width,
             "height": target_height,
-            "nodata": flood_nodata if not np.isnan(flood_nodata) else None,
+            "nodata": src_nodata if not np.isnan(src_nodata) else None,
             "compress": "deflate",
         }
-        with rasterio.open(flood_out, "w", **flood_profile) as dst:
-            dst.write(flood_dst, 1)
-            dst.descriptions = ("flood_depth_m",)
+        with rasterio.open(input_out, "w", **input_profile) as dst:
+            dst.write(input_dst)
+            if src.descriptions and any(src.descriptions):
+                dst.descriptions = src.descriptions
 
-        pop_data = pop.read(window=win)
-        pop_out = output_dir / f"{population_path.stem}_clipped.tif"
-        pop_profile = pop.profile.copy()
-        pop_profile.update(
+        tgt_data = tgt.read(window=win)
+        target_out = output_dir / (
+            clipped_target_name or f"{target_path.stem}_clipped.tif"
+        )
+        tgt_profile = tgt.profile.copy()
+        tgt_profile.update(
             driver="GTiff",
             transform=target_transform,
             width=target_width,
             height=target_height,
             compress="deflate",
         )
-        with rasterio.open(pop_out, "w", **pop_profile) as dst:
-            dst.write(pop_data)
-            if pop.descriptions:
-                dst.descriptions = pop.descriptions
+        with rasterio.open(target_out, "w", **tgt_profile) as dst:
+            dst.write(tgt_data)
+            if tgt.descriptions:
+                dst.descriptions = tgt.descriptions
 
-    logger.info("Wrote aligned flood: %s", flood_out)
-    logger.info("Wrote clipped pop:   %s", pop_out)
-    return flood_out, pop_out
+    logger.info("Wrote aligned input:  %s", input_out)
+    logger.info("Wrote clipped target: %s", target_out)
+    return input_out, target_out
 
 
 def _intersect_window(win: Window, width: int, height: int) -> Window:
