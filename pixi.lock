@@ -221,6 +221,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/46/2c/1462b1d0a634697ae9e55b3cecdcb64788e8b7d63f54d923fcd0bb140aed/soupsieve-2.8.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f1/7b/ce1eafaf1a76852e2ec9b22edecf1daa58175c090266e9f6c64afcd81d91/stack_data-0.6.3-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6a/9e/2064975477fdc887e47ad42157e214526dcad8f317a948dee17e1659a62f/terminado-0.18.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b4/af/ce4df3ca29122d219c45d3e86e5ff9a9df03b8cf31afd76817b662c803a3/tifffile-2026.5.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e6/34/ebdc18bae6aa14fbee1a08b63c015c72b64868ff7dae68808ab500c492e2/tinycss2-1.4.0-py3-none-any.whl
@@ -232,6 +233,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/e7/00/3fca040d7cf8a32776d3d81a00c8ee7457e00f80c649f1e4a863c8321ae9/uri_template-1.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/39/08/aaaad47bc4e9dc8c725e68f9d04865dbcb2052843ff09c97b08904852d84/urllib3-2.6.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3b/a4/0698f3e5c397442ec9323a537e48cc63b846288b6878d38efd04e91005e3/utm-0.8.1-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/8f/9e/053111e07789d0dfcbb4ff334b06fdbe6ad8c567be0c6278d0a1781e0793/wbgapi-1.0.14-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/41/52/e465037f5375f43533d1a80b6923955201596a99142ed524d77b571a1418/wcwidth-0.7.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e2/cc/e097523dd85c9cf5d354f78310927f1656c422bd7b2613b2db3e3f9a0f2c/webcolors-25.10.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f4/24/2a3e3df732393fed8b3ebf2ec078f05546de641fe1b667ee316ec1dcf3b7/webencodings-0.5.1-py2.py3-none-any.whl
@@ -731,7 +733,7 @@ packages:
 - pypi: ./
   name: d-health
   version: 0.1.0
-  sha256: c37aacc28f4d698955cff9eb49de9578af868f70b9bd92c6856239c264cf5fb8
+  sha256: e758ef488c80c66d96e1cc736a0b9cfab881d196d27cd32239eccd74f747866f
   requires_dist:
   - numpy
   - rasterio
@@ -745,6 +747,7 @@ packages:
   - utm
   - salib
   - seaborn
+  - wbgapi
   - jupyter ; extra == 'notebook'
   - ipykernel ; extra == 'notebook'
   requires_python: '>=3.11,<3.13'
@@ -3360,6 +3363,13 @@ packages:
   - pygments ; extra == 'tests'
   - littleutils ; extra == 'tests'
   - cython ; extra == 'tests'
+- pypi: https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl
+  name: tabulate
+  version: 0.10.0
+  sha256: f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3
+  requires_dist:
+  - wcwidth ; extra == 'widechars'
+  requires_python: '>=3.10'
 - conda: https://conda.anaconda.org/conda-forge/win-64/tbb-2023.0.0-h3155e25_0.conda
   sha256: 95c4a4757fb1f0b0ee8fe862824159a98b648a63a1346dfbf52e7e291c87c289
   md5: d2718b5daaf2c96ebbe8e5dc5379f5ee
@@ -3602,6 +3612,15 @@ packages:
   purls: []
   size: 115235
   timestamp: 1767320173250
+- pypi: https://files.pythonhosted.org/packages/8f/9e/053111e07789d0dfcbb4ff334b06fdbe6ad8c567be0c6278d0a1781e0793/wbgapi-1.0.14-py3-none-any.whl
+  name: wbgapi
+  version: 1.0.14
+  sha256: abf43fcbbdc85a84c0774755e725df76ad5ae076b3ecc38a940fa718e14c514b
+  requires_dist:
+  - requests
+  - pyyaml
+  - tabulate
+  requires_python: '>=3.0'
 - pypi: https://files.pythonhosted.org/packages/41/52/e465037f5375f43533d1a80b6923955201596a99142ed524d77b571a1418/wcwidth-0.7.0-py3-none-any.whl
   name: wcwidth
   version: 0.7.0

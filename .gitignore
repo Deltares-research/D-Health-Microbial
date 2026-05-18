@@ -65,6 +65,7 @@ ehthumbs.db
 # Local data / outputs (uncomment if you start dropping large files into the repo)
 # data/
 # outputs/
+examples/outputs/
 *.tif
 *.tiff
 *.nc

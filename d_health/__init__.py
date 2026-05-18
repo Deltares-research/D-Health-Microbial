@@ -9,7 +9,11 @@ from d_health.get_smod_data import (
     GHSSmodConfig,
     get_smod_data,
 )
-from d_health.utils import align_flood_and_population
+from d_health.get_world_bank_data import (
+    WDIConfig,
+    get_world_bank_data,
+)
+from d_health.utils import align_rasters
 
 __version__ = "0.1.0"
 
@@ -18,7 +22,9 @@ __all__ = [
     "get_population_data",
     "GHSSmodConfig",
     "get_smod_data",
-    "align_flood_and_population",
+    "WDIConfig",
+    "get_world_bank_data",
+    "align_rasters",
     "__version__",
 ]
 

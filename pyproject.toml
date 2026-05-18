@@ -20,6 +20,7 @@ dependencies = [
     "utm",
     "salib",
     "seaborn",
+    "wbgapi",
 ]
 dynamic = ["version"]
 
