@@ -65,14 +65,18 @@ class ModelSetupResult(FrozenModel):
 
 
 def _as_bbox_sequence(value: Any) -> tuple[float, float, float, float] | None:
-    if isinstance(value, (tuple, list)) and len(value) == 4 and all(
-        isinstance(v, (int, float)) for v in value
+    if (
+        isinstance(value, (tuple, list))
+        and len(value) == 4
+        and all(isinstance(v, (int, float)) for v in value)
     ):
         return tuple(float(v) for v in value)
     return None
 
 
-def _merge_bounds(all_bounds: list[tuple[float, float, float, float]]) -> tuple[float, float, float, float]:
+def _merge_bounds(
+    all_bounds: list[tuple[float, float, float, float]]
+) -> tuple[float, float, float, float]:
     if not all_bounds:
         raise ValueError("AOI feature collection is empty.")
     xs1, ys1, xs2, ys2 = zip(*all_bounds)
@@ -84,10 +88,12 @@ def _bounds_from_geojson(value: dict) -> tuple[float, float, float, float]:
     if kind == "Feature":
         return _bounds_from_geojson_geometry(value["geometry"])
     if kind == "FeatureCollection":
-        return _merge_bounds([
-            _bounds_from_geojson_geometry(feature["geometry"])
-            for feature in value.get("features", [])
-        ])
+        return _merge_bounds(
+            [
+                _bounds_from_geojson_geometry(feature["geometry"])
+                for feature in value.get("features", [])
+            ]
+        )
     if "coordinates" in value:
         return _bounds_from_geojson_geometry(value)
     raise TypeError("Unsupported GeoJSON object for AOI.")
@@ -157,7 +163,9 @@ def _iso2_to_iso3(iso2: str, *, timeout_s: float) -> str:
     country = payload[1][0]
     iso3 = str(country.get("id", "")).upper()
     if len(iso3) != 3:
-        raise ValueError(f"Invalid ISO3 returned by World Bank API for {iso2!r}: {iso3!r}")
+        raise ValueError(
+            f"Invalid ISO3 returned by World Bank API for {iso2!r}: {iso3!r}"
+        )
     return iso3
 
 
@@ -221,8 +229,13 @@ def _for_run_config(path: Path, *, run_dir: Path) -> str:
     try:
         rel = path.relative_to(run_dir)
     except ValueError:
-        # Use os.path.relpath semantics while preserving '/' separators.
-        rel = Path(os.path.relpath(path, run_dir))
+        try:
+            # Use os.path.relpath semantics while preserving '/' separators.
+            rel = Path(os.path.relpath(path, run_dir))
+        except ValueError:
+            # On Windows, paths on different drives cannot be made relative.
+            # Fall back to absolute path.
+            rel = path.resolve()
     return str(rel).replace("\\", "/")
 
 
@@ -309,7 +322,9 @@ def model_setup(
         country_source = "nominatim_reverse_geocode"
 
     iso_lower = country_code.lower()
-    population_path = data_dir / f"{iso_lower}_population_{ov.population_year}_combined.nc"
+    population_path = (
+        data_dir / f"{iso_lower}_population_{ov.population_year}_combined.nc"
+    )
     urban_rural_path = data_dir / f"{iso_lower}_urban_rural.nc"
     indicators_path = data_dir / f"{iso_lower}_indicators.toml"
 

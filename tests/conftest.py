@@ -1,4 +1,5 @@
 """Synthetic fixtures so tests never touch real rasters."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -73,11 +74,11 @@ def flood_16x16() -> np.ndarray:
     """A 16x16 flood raster spanning depths 0, 0.05, 0.3, 1.0, 2.0 m
     (positive = flooded, 0 = dry)."""
     arr = np.zeros((16, 16), dtype=np.float32)
-    arr[:4, :] = 0.0       # dry
-    arr[4:8, :] = 0.05     # below adults' wading threshold
-    arr[8:12, :] = 0.3     # adults wading, children wading
-    arr[12:14, :] = 1.0    # adults wading, children swimming
-    arr[14:, :] = 2.0      # adults swimming, children swimming
+    arr[:4, :] = 0.0  # dry
+    arr[4:8, :] = 0.05  # below adults' wading threshold
+    arr[8:12, :] = 0.3  # adults wading, children wading
+    arr[12:14, :] = 1.0  # adults wading, children swimming
+    arr[14:, :] = 2.0  # adults swimming, children swimming
     return arr
 
 
@@ -101,9 +102,9 @@ def population_16x16(small_meta) -> xr.DataArray:
 def urban_rural_16x16() -> np.ndarray:
     """Half urban (1), half rural (2), with a stripe of nodata (0)."""
     arr = np.zeros((16, 16), dtype=np.int8)
-    arr[:, :7] = 1   # urban
-    arr[:, 7] = 0    # nodata stripe
-    arr[:, 8:] = 2   # rural
+    arr[:, :7] = 1  # urban
+    arr[:, 7] = 0  # nodata stripe
+    arr[:, 8:] = 2  # rural
     return arr
 
 
@@ -114,14 +115,14 @@ def default_groups() -> list[PopulationGroup]:
         PopulationGroup(
             name="adults",
             depth_thresholds=[
-                DepthThreshold(name="wading",   min_depth=0.1, ing=10.0, unit="ml/h"),
+                DepthThreshold(name="wading", min_depth=0.1, ing=10.0, unit="ml/h"),
                 DepthThreshold(name="swimming", min_depth=1.5, ing=30.0, unit="ml/h"),
             ],
         ),
         PopulationGroup(
             name="children",
             depth_thresholds=[
-                DepthThreshold(name="wading",   min_depth=0.1, ing=30.0, unit="ml/h"),
+                DepthThreshold(name="wading", min_depth=0.1, ing=30.0, unit="ml/h"),
                 DepthThreshold(name="swimming", min_depth=0.5, ing=50.0, unit="ml/h"),
             ],
         ),
@@ -149,10 +150,20 @@ def default_emissions_cfg() -> EmissionsConfig:
         total_population_group="total",
         gdp_weight=GDPWeight(),
         sanitation_reductions=[
-            SanitationReduction(name="Safe",     urban_reduction_factor=0.10, rural_reduction_factor=0.10),
-            SanitationReduction(name="Advanced", urban_reduction_factor=0.25, rural_reduction_factor=0.25),
-            SanitationReduction(name="Basic",    urban_reduction_factor=0.70, rural_reduction_factor=0.30),
-            SanitationReduction(name="None",     urban_reduction_factor=1.00, rural_reduction_factor=1.00),
+            SanitationReduction(
+                name="Safe", urban_reduction_factor=0.10, rural_reduction_factor=0.10
+            ),
+            SanitationReduction(
+                name="Advanced",
+                urban_reduction_factor=0.25,
+                rural_reduction_factor=0.25,
+            ),
+            SanitationReduction(
+                name="Basic", urban_reduction_factor=0.70, rural_reduction_factor=0.30
+            ),
+            SanitationReduction(
+                name="None", urban_reduction_factor=1.00, rural_reduction_factor=1.00
+            ),
         ],
     )
 
@@ -164,9 +175,9 @@ def default_country() -> CountryIndicators:
         country_code="SUR",
         gdp_per_capita=7000.0,
         sanitation=[
-            SanitationLevel(name="Safe",     urban=80.0, rural=50.0),
+            SanitationLevel(name="Safe", urban=80.0, rural=50.0),
             SanitationLevel(name="Advanced", urban=10.0, rural=20.0),
-            SanitationLevel(name="Basic",    urban=5.0,  rural=20.0),
-            SanitationLevel(name="None",     urban=5.0,  rural=10.0),
+            SanitationLevel(name="Basic", urban=5.0, rural=20.0),
+            SanitationLevel(name="None", urban=5.0, rural=10.0),
         ],
     )

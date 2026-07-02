@@ -94,17 +94,26 @@ def _normalize_clip(clip: Any, target_crs: str) -> list[dict] | None:
         return [g.__geo_interface__ for g in geoms if g is not None]
 
     # Bounds: (xmin, ymin, xmax, ymax)
-    if isinstance(clip, (tuple, list)) and len(clip) == 4 and all(
-        isinstance(v, (int, float)) for v in clip
+    if (
+        isinstance(clip, (tuple, list))
+        and len(clip) == 4
+        and all(isinstance(v, (int, float)) for v in clip)
     ):
         xmin, ymin, xmax, ymax = clip
-        return [{
-            "type": "Polygon",
-            "coordinates": [[
-                [xmin, ymin], [xmax, ymin],
-                [xmax, ymax], [xmin, ymax], [xmin, ymin],
-            ]],
-        }]
+        return [
+            {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [xmin, ymin],
+                        [xmax, ymin],
+                        [xmax, ymax],
+                        [xmin, ymax],
+                        [xmin, ymin],
+                    ]
+                ],
+            }
+        ]
 
     # Shapely (or anything implementing __geo_interface__)
     if hasattr(clip, "__geo_interface__"):
@@ -112,7 +121,11 @@ def _normalize_clip(clip: Any, target_crs: str) -> list[dict] | None:
 
     # Raw GeoJSON dict
     if isinstance(clip, dict) and clip.get("type") in {
-        "Polygon", "MultiPolygon", "Feature", "FeatureCollection", "GeometryCollection",
+        "Polygon",
+        "MultiPolygon",
+        "Feature",
+        "FeatureCollection",
+        "GeometryCollection",
     }:
         if clip["type"] == "FeatureCollection":
             return [f["geometry"] for f in clip["features"]]
@@ -189,7 +202,10 @@ def get_smod_data(
     clip_geoms = _normalize_clip(clip, SMOD_CRS)
     logger.info(
         "GHS-SMOD %s E%d (%s, %s) — clip=%s",
-        cfg.release, cfg.epoch, cfg.crs_code, cfg.resolution,
+        cfg.release,
+        cfg.epoch,
+        cfg.crs_code,
+        cfg.resolution,
         "yes" if clip_geoms else "no",
     )
 
@@ -209,8 +225,12 @@ def get_smod_data(
             else:
                 src_nodata = src.nodata if src.nodata is not None else 0
                 data, transform = rio_mask(
-                    src, clip_geoms, crop=True, filled=True,
-                    nodata=src_nodata, all_touched=True,
+                    src,
+                    clip_geoms,
+                    crop=True,
+                    filled=True,
+                    nodata=src_nodata,
+                    all_touched=True,
                 )
                 data = data[0]  # single-band product
                 height, width = data.shape
@@ -238,8 +258,12 @@ def get_smod_data(
     }
     logger.info(
         "Wrote %s (%d × %d, urban=%d rural=%d nodata=%d, %.2f MB)",
-        out_path.name, height, width,
-        counts["urban"], counts["rural"], counts["nodata"],
+        out_path.name,
+        height,
+        width,
+        counts["urban"],
+        counts["rural"],
+        counts["nodata"],
         out_path.stat().st_size / 1e6,
     )
     return out_path

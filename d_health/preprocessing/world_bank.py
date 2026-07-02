@@ -11,8 +11,12 @@ from d_health.config.preprocessing import DEFAULT_INDICATOR_CODES, WDIConfig
 logger = logging.getLogger(__name__)
 
 OUTPUT_COLUMNS: tuple[str, ...] = (
-    "Country Name", "Country Code", "Indicator Name", "Indicator Code",
-    "Latest Year", "Latest Value",
+    "Country Name",
+    "Country Code",
+    "Indicator Name",
+    "Indicator Code",
+    "Latest Year",
+    "Latest Value",
 )
 
 __all__ = ["WDIConfig", "DEFAULT_INDICATOR_CODES", "fetch_wdi", "get_world_bank_data"]
@@ -34,19 +38,18 @@ def _fetch_latest(indicator_codes: tuple[str, ...]) -> pd.DataFrame:
         #    'series':  {'id': 'NY.GDP.PCAP.CD', 'value': 'GDP per capita ...'},
         #    'economy': {'id': 'SUR', 'value': 'Suriname', 'aggregate': False},
         #    'time':    {'id': 'YR2024', 'value': '2024'}}
-        rows.append({
-            "Country Name":   r["economy"]["value"],
-            "Country Code":   r["economy"]["id"],
-            "Indicator Name": r["series"]["value"],
-            "Indicator Code": r["series"]["id"],
-            "Latest Year":    int(r["time"]["value"]),
-            "Latest Value":   r["value"],
-        })
+        rows.append(
+            {
+                "Country Name": r["economy"]["value"],
+                "Country Code": r["economy"]["id"],
+                "Indicator Name": r["series"]["value"],
+                "Indicator Code": r["series"]["id"],
+                "Latest Year": int(r["time"]["value"]),
+                "Latest Value": r["value"],
+            }
+        )
     df = pd.DataFrame(rows, columns=list(OUTPUT_COLUMNS))
-    return (
-        df.sort_values(["Country Code", "Indicator Code"])
-        .reset_index(drop=True)
-    )
+    return df.sort_values(["Country Code", "Indicator Code"]).reset_index(drop=True)
 
 
 def fetch_wdi(cfg: WDIConfig = WDIConfig()) -> pd.DataFrame:
@@ -70,7 +73,9 @@ def fetch_wdi(cfg: WDIConfig = WDIConfig()) -> pd.DataFrame:
         )
     logger.info(
         "Received %d rows across %d economies x %d indicators",
-        len(df), df["Country Code"].nunique(), df["Indicator Code"].nunique(),
+        len(df),
+        df["Country Code"].nunique(),
+        df["Indicator Code"].nunique(),
     )
     return df
 
@@ -117,6 +122,8 @@ def get_world_bank_data(
     df.to_csv(out_path, sep=cfg.csv_sep, index=False)
     logger.info(
         "Wrote %s (%d rows, %.2f MB)",
-        out_path.name, len(df), out_path.stat().st_size / 1e6,
+        out_path.name,
+        len(df),
+        out_path.stat().st_size / 1e6,
     )
     return out_path

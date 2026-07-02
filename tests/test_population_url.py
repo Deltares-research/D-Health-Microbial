@@ -4,6 +4,7 @@ These tests pin both supported product layouts so a change to the default
 (``global1_2000_2020`` — the constrained 2020 product) or to the URL
 convention is caught without hitting the network.
 """
+
 from __future__ import annotations
 
 from d_health.config.preprocessing import (

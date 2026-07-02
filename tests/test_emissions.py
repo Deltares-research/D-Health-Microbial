@@ -5,6 +5,7 @@ The cross-config sanitation-name-coverage check is enforced at config load by
 ``test_validators.test_runconfig_missing_sanitation_reduction_raises``), not by
 ``compute_emissions`` — so these tests can assume a consistent config.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -52,13 +53,17 @@ def test_emissions_no_sanitation_reduction(default_country):
         total_population_group="total",
         gdp_weight=GDPWeight(),
         sanitation_reductions=[
-            SanitationReduction(name=s.name, urban_reduction_factor=1.0, rural_reduction_factor=1.0)
+            SanitationReduction(
+                name=s.name, urban_reduction_factor=1.0, rural_reduction_factor=1.0
+            )
             for s in default_country.sanitation
         ],
     )
     popdens = np.array([[100.0, 100.0, 100.0]])
     urban_rural = np.array([[1, 2, 0]], dtype=np.int8)
-    out = compute_emissions(popdens=popdens, urban_rural=urban_rural, country=default_country, cfg=cfg)
+    out = compute_emissions(
+        popdens=popdens, urban_rural=urban_rural, country=default_country, cfg=cfg
+    )
     weight = max(0.5, 1.0 - 7000.0 / 80000.0)
     expected = 100.0 * 1.0e9 * weight
     assert np.allclose(out, expected)

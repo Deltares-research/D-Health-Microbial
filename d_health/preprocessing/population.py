@@ -105,17 +105,26 @@ def _normalize_clip(clip: Any) -> list[dict] | None:
         return [g.__geo_interface__ for g in geoms if g is not None]
 
     # Bounds: (xmin, ymin, xmax, ymax)
-    if isinstance(clip, (tuple, list)) and len(clip) == 4 and all(
-        isinstance(v, (int, float)) for v in clip
+    if (
+        isinstance(clip, (tuple, list))
+        and len(clip) == 4
+        and all(isinstance(v, (int, float)) for v in clip)
     ):
         xmin, ymin, xmax, ymax = clip
-        return [{
-            "type": "Polygon",
-            "coordinates": [[
-                [xmin, ymin], [xmax, ymin],
-                [xmax, ymax], [xmin, ymax], [xmin, ymin],
-            ]],
-        }]
+        return [
+            {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [xmin, ymin],
+                        [xmax, ymin],
+                        [xmax, ymax],
+                        [xmin, ymax],
+                        [xmin, ymin],
+                    ]
+                ],
+            }
+        ]
 
     # Shapely geometry (or anything implementing __geo_interface__)
     if hasattr(clip, "__geo_interface__"):
@@ -123,7 +132,11 @@ def _normalize_clip(clip: Any) -> list[dict] | None:
 
     # Raw GeoJSON dict
     if isinstance(clip, dict) and clip.get("type") in {
-        "Polygon", "MultiPolygon", "Feature", "FeatureCollection", "GeometryCollection",
+        "Polygon",
+        "MultiPolygon",
+        "Feature",
+        "FeatureCollection",
+        "GeometryCollection",
     }:
         if clip["type"] == "FeatureCollection":
             return [f["geometry"] for f in clip["features"]]
@@ -138,9 +151,7 @@ def _normalize_clip(clip: Any) -> list[dict] | None:
     )
 
 
-def _read_one(
-    path: Path, clip_geoms: list[dict] | None
-) -> tuple[np.ndarray, dict]:
+def _read_one(path: Path, clip_geoms: list[dict] | None) -> tuple[np.ndarray, dict]:
     """Open a raster, optionally crop to ``clip_geoms``, return data + profile."""
     with rasterio.open(path) as src:
         if clip_geoms is None:
@@ -229,8 +240,12 @@ def get_population_data(
     n_expected = len(child_ages + adult_ages) * len(SEXES)
     logger.info(
         "Fetching WorldPop %s %d (%s, %s) — %d files, clip=%s",
-        country.upper(), year, cfg.series, cfg.type_dir,
-        n_expected, "yes" if clip_geoms else "no",
+        country.upper(),
+        year,
+        cfg.series,
+        cfg.type_dir,
+        n_expected,
+        "yes" if clip_geoms else "no",
     )
     missing: list[str] = []
 
@@ -238,8 +253,13 @@ def get_population_data(
         ages: Sequence[str], label: str, tmpdir: Path
     ) -> tuple[np.ndarray, dict]:
         n = len(ages) * len(SEXES)
-        logger.info("Downloading %s rasters (%d files: %d age bins × %d sexes)",
-                    label, n, len(ages), len(SEXES))
+        logger.info(
+            "Downloading %s rasters (%d files: %d age bins × %d sexes)",
+            label,
+            n,
+            len(ages),
+            len(SEXES),
+        )
         total: np.ndarray | None = None
         profile: dict | None = None
         for age in ages:
@@ -274,7 +294,11 @@ def get_population_data(
     total = children + adults
 
     data = np.stack(
-        [children.astype(np.float32), adults.astype(np.float32), total.astype(np.float32)],
+        [
+            children.astype(np.float32),
+            adults.astype(np.float32),
+            total.astype(np.float32),
+        ],
         axis=0,
     )
     population = from_numpy(
@@ -293,7 +317,8 @@ def get_population_data(
     if missing:
         logger.warning(
             "%d of %d rasters were missing (404). Output bands sum the available ones.",
-            len(missing), n_expected,
+            len(missing),
+            n_expected,
         )
     logger.info("Wrote %s (%.1f MB)", out_path, out_path.stat().st_size / 1e6)
 

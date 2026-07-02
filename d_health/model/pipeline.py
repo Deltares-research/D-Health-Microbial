@@ -17,7 +17,10 @@ from d_health.model.outputs import ModelOutputs
 from d_health.model.risk import calc_infection_risk_beta_poisson
 from d_health.postprocessing.aggregate import per_group_totals
 from d_health.postprocessing.coverage import flooded_dry_stats, log_coverage
-from d_health.postprocessing.flood_classes import compute_flood_classes, plot_flood_classes
+from d_health.postprocessing.flood_classes import (
+    compute_flood_classes,
+    plot_flood_classes,
+)
 from d_health.postprocessing.plot import plot_per_group, plot_raster
 from d_health.postprocessing.risk_classes import (
     DEFAULT_RISK_EDGES,
@@ -72,7 +75,9 @@ def run_model(config: RunConfig, *, inputs: ModelInputs | None = None) -> ModelO
         name: calc_infection_risk_beta_poisson(dose, pp.alpha, pp.beta)
         for name, dose in doses.items()
     }
-    infected = calc_infected_pop_per_group(risks, inputs.population, mc.population_groups)
+    infected = calc_infected_pop_per_group(
+        risks, inputs.population, mc.population_groups
+    )
     totals = per_group_totals(infected)
     for k, v in totals.items():
         logger.info("Total %s = %d", k, int(round(v)))
@@ -80,19 +85,24 @@ def run_model(config: RunConfig, *, inputs: ModelInputs | None = None) -> ModelO
     # ── postprocessing analytics (always computed; plots gated on outputs.plots)
     flood_classes = compute_flood_classes(inputs.flood, mc.population_groups)
     coverage = flooded_dry_stats(
-        inputs.flood, inputs.population, mc.population_groups, mc.emissions,
+        inputs.flood,
+        inputs.population,
+        mc.population_groups,
+        mc.emissions,
         flood_classes=flood_classes,
     )
     log_coverage(coverage)
     risk_class_counts = bin_population_by_risk(
-        risks, inputs.population, mc.population_groups,
+        risks,
+        inputs.population,
+        mc.population_groups,
         edges=DEFAULT_RISK_EDGES,
     )
 
     # ── write outputs (netCDF; ``inputs.population`` supplies the output grid)
     out_dir = Path(config.output.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    grid = inputs.population          # x/y coords + CRS for wrap_like
+    grid = inputs.population  # x/y coords + CRS for wrap_like
     paths: dict[str, Path] = {}
     paths["emissions"] = write_netcdf(
         wrap_like(emissions, grid, name="emissions"),
@@ -121,7 +131,9 @@ def run_model(config: RunConfig, *, inputs: ModelInputs | None = None) -> ModelO
 
     if config.output.plots:
         plot_raster(
-            emissions, cmap="viridis", title="E. coli emissions (CFU)",
+            emissions,
+            cmap="viridis",
+            title="E. coli emissions (CFU)",
             save_path=out_dir / "emissions.png",
         )
         paths.update(plot_per_group(doses, label="dose", out_dir=out_dir))
@@ -129,14 +141,16 @@ def run_model(config: RunConfig, *, inputs: ModelInputs | None = None) -> ModelO
         paths.update(plot_per_group(infected, label="infected", out_dir=out_dir))
 
         fc_plot = plot_flood_classes(
-            flood_classes, mc.population_groups,
+            flood_classes,
+            mc.population_groups,
             save_path=out_dir / "flood_classes.png",
         )
         if fc_plot is not None:
             paths["flood_classes_plot"] = fc_plot
 
         rh_plot = plot_risk_class_histogram(
-            risk_class_counts, edges=DEFAULT_RISK_EDGES,
+            risk_class_counts,
+            edges=DEFAULT_RISK_EDGES,
             save_path=out_dir / "risk_histogram.png",
         )
         if rh_plot is not None:

@@ -28,7 +28,7 @@ class DepthThreshold(FrozenModel):
 
     name: str = Field(
         description=(
-            "Label for this depth band (e.g. ``\"wading\"``, ``\"swimming\"``) "
+            'Label for this depth band (e.g. ``"wading"``, ``"swimming"``) '
             "describing how the group experiences the flood at this depth. "
             "Used for readability and flood-class labelling; must be unique "
             "within a group."
@@ -52,7 +52,7 @@ class DepthThreshold(FrozenModel):
     )
     unit: Literal["ml/h", "ml/event"] = Field(
         description=(
-            "Unit of ``ing``. ``\"ml/h\"`` is used as-is; ``\"ml/event\"`` is "
+            'Unit of ``ing``. ``"ml/h"`` is used as-is; ``"ml/event"`` is '
             "divided by the run-level ``SettingsConfig.event_in_hours`` inside "
             "``ingestion_ml_per_h`` to yield mL/h."
         ),

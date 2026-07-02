@@ -1,0 +1,7 @@
+[default]
+# ISO 3166-1 alpha-3 country code for Suriname (SUR) and related prefixes
+# used throughout tests and data filenames
+extend-ignore-words-re = [
+    "(?i)\\bSUR\\b",
+    "(?i)\\bsur_",
+]

@@ -75,8 +75,7 @@ def load_raster(
             gm_vars = {"spatial_ref", "crs"}
             gm_vars |= {ds[v].attrs.get("grid_mapping") for v in ds.data_vars}
             gm_vars = {
-                v for v in gm_vars
-                if v and v in ds.variables and v not in ds.coords
+                v for v in gm_vars if v and v in ds.variables and v not in ds.coords
             }
             if gm_vars:
                 ds = ds.set_coords(sorted(gm_vars))

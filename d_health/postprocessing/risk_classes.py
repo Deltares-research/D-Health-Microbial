@@ -77,9 +77,7 @@ def plot_risk_class_histogram(
     ax.set_ylabel("Population count")
     ax.set_title("Population count in risk classes")
     ax.set_xticks(index + bar_width * (n_groups - 1) / 2)
-    ax.set_xticklabels(
-        [f"{edges[i]:.1f}-{edges[i + 1]:.1f}" for i in range(n_bins)]
-    )
+    ax.set_xticklabels([f"{edges[i]:.1f}-{edges[i + 1]:.1f}" for i in range(n_bins)])
     ax.legend()
 
     saved: Path | None = None

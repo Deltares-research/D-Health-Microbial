@@ -64,9 +64,7 @@ def _configure_default_logging() -> None:
     if logger.handlers:
         return  # user (or a previous import) already configured it
     handler = _logging.StreamHandler(_sys.stderr)
-    handler.setFormatter(
-        _logging.Formatter("%(name)s | %(levelname)s | %(message)s")
-    )
+    handler.setFormatter(_logging.Formatter("%(name)s | %(levelname)s | %(message)s"))
     logger.addHandler(handler)
     logger.setLevel(_logging.INFO)
     logger.propagate = False

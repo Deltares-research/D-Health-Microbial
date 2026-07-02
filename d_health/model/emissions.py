@@ -61,7 +61,9 @@ def compute_emissions(
     )
     logger.debug(
         "Sanitation factors for %s: urban=%.4f rural=%.4f",
-        country.country_code, urban_eff, rural_eff,
+        country.country_code,
+        urban_eff,
+        rural_eff,
     )
 
     sani = np.ones_like(popdens, dtype=np.float64)
@@ -72,7 +74,8 @@ def compute_emissions(
     weight = max(gw.floor, gw.intercept - country.gdp_per_capita / gw.divisor)
     logger.debug(
         "GDP weight factor (GDP=%.0f): %.4f",
-        country.gdp_per_capita, weight,
+        country.gdp_per_capita,
+        weight,
     )
 
     return popdens.astype(np.float64) * cfg.per_capita_ecoli_rate * sani * weight

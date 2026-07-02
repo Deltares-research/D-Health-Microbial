@@ -3,6 +3,7 @@
 Exercises both netCDF inputs (the new default) and multi-band GeoTIFF inputs
 (back-compat).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -17,7 +18,7 @@ def _build_arrays(small_meta):
     transform = small_meta["transform"]
     crs = small_meta["crs"]
     flood = np.zeros((16, 16), dtype=np.float32)
-    flood[8:, :] = 2.0          # bottom half flooded at 2 m, top half dry (0)
+    flood[8:, :] = 2.0  # bottom half flooded at 2 m, top half dry (0)
     children = np.full((16, 16), 10.0, dtype=np.float32)
     adults = np.full((16, 16), 30.0, dtype=np.float32)
     pop = np.stack([children, adults, children + adults], axis=0)
@@ -57,7 +58,8 @@ def test_load_inputs_netcdf_keeps_positive_depth_and_group_dim(tmp_path, small_m
     flood_da, pop_da, ur_da = _build_arrays(small_meta)
     flood_p = write_netcdf(flood_da, tmp_path / "flood.nc")
     pop_p = write_netcdf(
-        pop_da, tmp_path / "pop.nc",
+        pop_da,
+        tmp_path / "pop.nc",
         descriptions=("children_0_9", "adults_10_plus", "total"),
     )
     ur_p = write_netcdf(ur_da, tmp_path / "ur.nc")
@@ -72,7 +74,9 @@ def test_load_inputs_netcdf_keeps_positive_depth_and_group_dim(tmp_path, small_m
     assert isinstance(inputs.population, xr.DataArray)
     assert "group" in inputs.population.dims
     assert set(map(str, inputs.population["group"].values)) == {
-        "children", "adults", "total",
+        "children",
+        "adults",
+        "total",
     }
     assert np.allclose(
         inputs.population.sel(group="total").values, 40.0, equal_nan=True
