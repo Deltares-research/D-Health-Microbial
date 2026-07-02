@@ -1,15 +1,24 @@
 """Round-trip tests for the xarray/rioxarray netCDF I/O."""
+
 from __future__ import annotations
 
 import numpy as np
 from rasterio.crs import CRS
 from rasterio.transform import from_origin
 
-from d_health.io import da_to_meta, from_numpy, load_population, load_raster, write_netcdf
+from d_health.io import (
+    da_to_meta,
+    from_numpy,
+    load_population,
+    load_raster,
+    write_netcdf,
+)
 
 
 def _transform_crs():
-    return from_origin(west=200000.0, north=600000.0, xsize=100.0, ysize=100.0), CRS.from_epsg(32621)
+    return from_origin(
+        west=200000.0, north=600000.0, xsize=100.0, ysize=100.0
+    ), CRS.from_epsg(32621)
 
 
 def test_write_then_load_roundtrip_2d(tmp_path):
@@ -28,12 +37,16 @@ def test_write_then_load_roundtrip_2d(tmp_path):
 
 def test_write_then_load_population_preserves_group_labels(tmp_path):
     transform, crs = _transform_crs()
-    data = np.stack([
-        np.full((16, 16), 1.0, dtype=np.float32),
-        np.full((16, 16), 2.0, dtype=np.float32),
-        np.full((16, 16), 3.0, dtype=np.float32),
-    ])
-    da = from_numpy(data, transform, crs, name="population", group=("children", "adults", "total"))
+    data = np.stack(
+        [
+            np.full((16, 16), 1.0, dtype=np.float32),
+            np.full((16, 16), 2.0, dtype=np.float32),
+            np.full((16, 16), 3.0, dtype=np.float32),
+        ]
+    )
+    da = from_numpy(
+        data, transform, crs, name="population", group=("children", "adults", "total")
+    )
 
     path = write_netcdf(da, tmp_path / "pop.nc")
     back = load_population(path)

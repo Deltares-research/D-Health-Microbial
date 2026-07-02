@@ -1,4 +1,5 @@
 """Test #8: end-to-end run_model with synthetic inputs."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -14,8 +15,14 @@ from d_health.model.inputs import ModelInputs
 from d_health.model.pipeline import run_model
 
 
-def _build_config(default_pathogen, default_groups, default_emissions_cfg,
-                  default_country, tmp_path, write_country_toml):
+def _build_config(
+    default_pathogen,
+    default_groups,
+    default_emissions_cfg,
+    default_country,
+    tmp_path,
+    write_country_toml,
+):
     # Country indicators are read from disk at run time, so materialise them.
     ind = write_country_toml(tmp_path / "ind.toml", default_country)
     return RunConfig(
@@ -47,8 +54,12 @@ def test_run_model_shape_parity_and_totals(
     write_country_toml,
 ):
     config = _build_config(
-        default_pathogen, default_groups, default_emissions_cfg,
-        default_country, tmp_path, write_country_toml,
+        default_pathogen,
+        default_groups,
+        default_emissions_cfg,
+        default_country,
+        tmp_path,
+        write_country_toml,
     )
     inputs = ModelInputs(
         flood=flood_16x16,
@@ -84,8 +95,14 @@ def test_run_model_shape_parity_and_totals(
 
     # Output rasters exist (per-group quantities are stacked into one netCDF
     # each, along the group dim).
-    for label in ("emissions", "pathogen_conc", "flood_classes",
-                  "dose", "risk", "infected"):
+    for label in (
+        "emissions",
+        "pathogen_conc",
+        "flood_classes",
+        "dose",
+        "risk",
+        "infected",
+    ):
         assert label in outputs.paths, f"missing output path for {label}"
         assert outputs.paths[label].exists()
         assert outputs.paths[label].suffix == ".nc"

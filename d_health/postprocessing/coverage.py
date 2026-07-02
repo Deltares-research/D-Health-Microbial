@@ -89,7 +89,9 @@ def log_coverage(stats: CoverageBreakdown) -> None:
 
     logger.info("Total inhabitants:                 %d", round(total))
     logger.info("In flooded area:                   %d (%.0f%%)", round(flooded), pct)
-    logger.info("In dry area:                       %d (%.0f%%)", round(dry), 100.0 - pct)
+    logger.info(
+        "In dry area:                       %d (%.0f%%)", round(dry), 100.0 - pct
+    )
 
     for name in stats.flooded:
         if name == "total":
@@ -99,7 +101,9 @@ def log_coverage(stats: CoverageBreakdown) -> None:
         share = (n_flooded / n_total * 100.0) if n_total else 0.0
         logger.info(
             "  %-22s in flooded area: %d (%.0f%%)",
-            name, round(n_flooded), share,
+            name,
+            round(n_flooded),
+            share,
         )
 
     for cls, entry in sorted(stats.per_class.items()):
@@ -107,5 +111,7 @@ def log_coverage(stats: CoverageBreakdown) -> None:
         share = (cls_total / total * 100.0) if total else 0.0
         logger.info(
             "Flood class %d: %d inhabitants (%.0f%%)",
-            cls, round(cls_total), share,
+            cls,
+            round(cls_total),
+            share,
         )

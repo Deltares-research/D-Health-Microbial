@@ -4,7 +4,7 @@ from pydantic import Field, model_validator
 
 from d_health.config.base import FrozenModel
 
-_SUM_TOLERANCE = 0.5   # percent; allow small rounding error in WB-derived inputs
+_SUM_TOLERANCE = 0.5  # percent; allow small rounding error in WB-derived inputs
 
 
 class SanitationLevel(FrozenModel):
@@ -125,10 +125,18 @@ def _default_sanitation_reductions() -> list["SanitationReduction"]:
     sanitation (full emissions retained), smaller = more sanitation.
     """
     return [
-        SanitationReduction(name="Safe",     urban_reduction_factor=0.10, rural_reduction_factor=0.10),
-        SanitationReduction(name="Advanced", urban_reduction_factor=0.25, rural_reduction_factor=0.25),
-        SanitationReduction(name="Basic",    urban_reduction_factor=0.70, rural_reduction_factor=0.30),
-        SanitationReduction(name="None",     urban_reduction_factor=1.00, rural_reduction_factor=1.00),
+        SanitationReduction(
+            name="Safe", urban_reduction_factor=0.10, rural_reduction_factor=0.10
+        ),
+        SanitationReduction(
+            name="Advanced", urban_reduction_factor=0.25, rural_reduction_factor=0.25
+        ),
+        SanitationReduction(
+            name="Basic", urban_reduction_factor=0.70, rural_reduction_factor=0.30
+        ),
+        SanitationReduction(
+            name="None", urban_reduction_factor=1.00, rural_reduction_factor=1.00
+        ),
     ]
 
 
@@ -181,9 +189,7 @@ class EmissionsConfig(FrozenModel):
     def _check_unique_names(self) -> "EmissionsConfig":
         names = [r.name for r in self.sanitation_reductions]
         if len(set(names)) != len(names):
-            raise ValueError(
-                f"sanitation_reductions names must be unique; got {names}"
-            )
+            raise ValueError(f"sanitation_reductions names must be unique; got {names}")
         return self
 
 
@@ -203,7 +209,7 @@ class CountryIndicators(FrozenModel):
     country_code: str = Field(
         pattern=r"^[A-Z]{3}$",
         description=(
-            "ISO 3166-1 alpha-3 country code, uppercase (e.g. ``\"SUR\"``). "
+            'ISO 3166-1 alpha-3 country code, uppercase (e.g. ``"SUR"``). '
             "Used in log lines and downstream output metadata."
         ),
     )

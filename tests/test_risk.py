@@ -1,4 +1,5 @@
 """Test #2: beta-Poisson risk is monotonic and bounded."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -16,7 +17,7 @@ def test_beta_poisson_monotonic_and_bounded():
 
     assert np.all(risks >= 0.0)
     assert np.all(risks < 1.0)
-    assert risks[0] == 0.0   # dose=0 -> risk=0
+    assert risks[0] == 0.0  # dose=0 -> risk=0
     # strictly increasing
     assert np.all(np.diff(risks) > 0)
 

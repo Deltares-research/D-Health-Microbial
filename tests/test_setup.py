@@ -51,7 +51,9 @@ def test_derive_country_from_aoi_uses_reverse_geocode_and_iso_mapping(monkeypatc
     assert len(calls) == 2
 
 
-def test_model_setup_writes_settings_without_event_and_supports_manual_iso(monkeypatch, tmp_path):
+def test_model_setup_writes_settings_without_event_and_supports_manual_iso(
+    monkeypatch, tmp_path
+):
     def _fake_population(country, year, output_path, **kwargs):
         output_path.write_text("population", encoding="utf-8")
         return output_path
@@ -82,9 +84,13 @@ def test_model_setup_writes_settings_without_event_and_supports_manual_iso(monke
     monkeypatch.setattr("d_health.model.setup.get_country_indicators", _fake_country)
 
     def _should_not_call(*args, **kwargs):
-        raise AssertionError("derive_country_from_aoi should not be called with manual override")
+        raise AssertionError(
+            "derive_country_from_aoi should not be called with manual override"
+        )
 
-    monkeypatch.setattr("d_health.model.setup.derive_country_from_aoi", _should_not_call)
+    monkeypatch.setattr(
+        "d_health.model.setup.derive_country_from_aoi", _should_not_call
+    )
 
     setup_root = tmp_path / "setup"
     result = model_setup(
@@ -106,7 +112,10 @@ def test_model_setup_writes_settings_without_event_and_supports_manual_iso(monke
     assert payload["metadata"]["country_source"] == "manual_override"
 
     cfg = load_setup_config(result.settings_toml)
-    assert cfg.exposure.population == (setup_root / "data" / "sur_population_2020_combined.nc").resolve()
+    assert (
+        cfg.exposure.population
+        == (setup_root / "data" / "sur_population_2020_combined.nc").resolve()
+    )
     assert not (setup_root / "outputs" / "run").exists()
 
 

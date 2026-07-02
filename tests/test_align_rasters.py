@@ -1,4 +1,5 @@
 """Smoke tests for the rioxarray-based align_rasters."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,7 +20,9 @@ def test_align_identical_grid_is_noop_shape():
     """When input and target share a grid, output shape matches and values pass through."""
     src_vals = np.arange(16 * 16, dtype=np.float32).reshape(16, 16)
     src = _da(src_vals, 0.0, 1600.0, 100.0, 100.0, name="src")
-    tgt = _da(np.zeros((16, 16), dtype=np.float32), 0.0, 1600.0, 100.0, 100.0, name="tgt")
+    tgt = _da(
+        np.zeros((16, 16), dtype=np.float32), 0.0, 1600.0, 100.0, 100.0, name="tgt"
+    )
 
     aligned, clipped = align_rasters(src, tgt, resampling="nearest")
 
@@ -31,8 +34,12 @@ def test_align_identical_grid_is_noop_shape():
 
 def test_align_input_smaller_than_target_clips_target():
     """Smaller input → target is clipped to the overlap; both outputs share a grid."""
-    tgt = _da(np.full((32, 32), 7.0, dtype=np.float32), 0.0, 3200.0, 100.0, 100.0, name="tgt")
-    src = _da(np.full((8, 8), 3.0, dtype=np.float32), 800.0, 2400.0, 100.0, 100.0, name="src")
+    tgt = _da(
+        np.full((32, 32), 7.0, dtype=np.float32), 0.0, 3200.0, 100.0, 100.0, name="tgt"
+    )
+    src = _da(
+        np.full((8, 8), 3.0, dtype=np.float32), 800.0, 2400.0, 100.0, 100.0, name="src"
+    )
 
     aligned, clipped = align_rasters(src, tgt, resampling="nearest")
 
@@ -42,8 +49,17 @@ def test_align_input_smaller_than_target_clips_target():
 
 
 def test_align_no_overlap_raises():
-    tgt = _da(np.zeros((16, 16), dtype=np.float32), 0.0, 1600.0, 100.0, 100.0, name="tgt")
-    src = _da(np.zeros((4, 4), dtype=np.float32), 1_000_000.0, 2_000_000.0, 100.0, 100.0, name="src")
+    tgt = _da(
+        np.zeros((16, 16), dtype=np.float32), 0.0, 1600.0, 100.0, 100.0, name="tgt"
+    )
+    src = _da(
+        np.zeros((4, 4), dtype=np.float32),
+        1_000_000.0,
+        2_000_000.0,
+        100.0,
+        100.0,
+        name="src",
+    )
     with pytest.raises(ValueError, match="do not overlap"):
         align_rasters(src, tgt)
 
@@ -57,13 +73,30 @@ def test_align_bad_resampling_raises():
 
 def test_align_target_group_dim_preserved():
     """A multi-group target keeps its group dim (and labels) through clipping."""
-    vals = np.stack([
-        np.full((32, 32), 1.0, dtype=np.float32),
-        np.full((32, 32), 2.0, dtype=np.float32),
-        np.full((32, 32), 3.0, dtype=np.float32),
-    ])
-    tgt = _da(vals, 0.0, 3200.0, 100.0, 100.0, name="population", group=("children", "adults", "total"))
-    src = _da(np.full((8, 8), 5.0, dtype=np.float32), 800.0, 2400.0, 100.0, 100.0, name="flood")
+    vals = np.stack(
+        [
+            np.full((32, 32), 1.0, dtype=np.float32),
+            np.full((32, 32), 2.0, dtype=np.float32),
+            np.full((32, 32), 3.0, dtype=np.float32),
+        ]
+    )
+    tgt = _da(
+        vals,
+        0.0,
+        3200.0,
+        100.0,
+        100.0,
+        name="population",
+        group=("children", "adults", "total"),
+    )
+    src = _da(
+        np.full((8, 8), 5.0, dtype=np.float32),
+        800.0,
+        2400.0,
+        100.0,
+        100.0,
+        name="flood",
+    )
 
     aligned, clipped = align_rasters(src, tgt, resampling="nearest")
 

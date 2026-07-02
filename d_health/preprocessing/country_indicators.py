@@ -16,6 +16,7 @@ WB → 4-tier mapping (urban; rural is analogous):
 Running ``build_from_wdi`` writes a ``country_indicators.toml`` that
 ``ExposureConfig.country_indicators`` can point at.
 """
+
 from __future__ import annotations
 
 import logging
@@ -42,8 +43,7 @@ _WASH_CODES = {
 
 def _get(df: pd.DataFrame, country_code: str, indicator_code: str) -> float:
     rows = df[
-        (df["Country Code"] == country_code)
-        & (df["Indicator Code"] == indicator_code)
+        (df["Country Code"] == country_code) & (df["Indicator Code"] == indicator_code)
     ]
     if rows.empty:
         raise KeyError(
@@ -63,7 +63,9 @@ def _format_toml(country_code: str, gdp: float, classes: list[dict]) -> str:
     lines.append(f'country_code   = "{country_code}"')
     lines.append(f"gdp_per_capita = {gdp}")
     lines.append("")
-    lines.append("# WB-derived 4-class sanitation breakdown (percent, sums to 100 per column).")
+    lines.append(
+        "# WB-derived 4-class sanitation breakdown (percent, sums to 100 per column)."
+    )
     for c in classes:
         lines.append("[[sanitation]]")
         lines.append(f'name  = "{c["name"]}"')
@@ -72,9 +74,7 @@ def _format_toml(country_code: str, gdp: float, classes: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _derive_indicators(
-    df: pd.DataFrame, country_code: str
-) -> tuple[float, list[dict]]:
+def _derive_indicators(df: pd.DataFrame, country_code: str) -> tuple[float, list[dict]]:
     """GDP + the WB→4-class WASH breakdown for one country, from a WDI long table.
 
     Shared by :func:`build_from_wdi` (CSV) and :func:`get_country_indicators`
@@ -95,10 +95,10 @@ def _derive_indicators(
     none_u, none_r = odfc_u, odfc_r
 
     classes = [
-        {"name": "Safe",     "urban": safe_u,  "rural": safe_r},
-        {"name": "Advanced", "urban": adv_u,   "rural": adv_r},
-        {"name": "Basic",    "urban": basic_u, "rural": basic_r},
-        {"name": "None",     "urban": none_u,  "rural": none_r},
+        {"name": "Safe", "urban": safe_u, "rural": safe_r},
+        {"name": "Advanced", "urban": adv_u, "rural": adv_r},
+        {"name": "Basic", "urban": basic_u, "rural": basic_r},
+        {"name": "None", "urban": none_u, "rural": none_r},
     ]
     return gdp, classes
 
@@ -114,9 +114,12 @@ def _write_indicators(
     by = {c["name"]: c for c in classes}
     logger.info(
         "Wrote %s (GDP=%.0f, Safe u/r=%.1f/%.1f, None u/r=%.1f/%.1f)",
-        out_path, gdp,
-        by["Safe"]["urban"], by["Safe"]["rural"],
-        by["None"]["urban"], by["None"]["rural"],
+        out_path,
+        gdp,
+        by["Safe"]["urban"],
+        by["Safe"]["rural"],
+        by["None"]["urban"],
+        by["None"]["rural"],
     )
     return out_path
 

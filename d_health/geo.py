@@ -121,6 +121,9 @@ def align_rasters(
 
     logger.info(
         "Aligned input %s and clipped target onto %d × %d grid (resampling=%s)",
-        tuple(aligned.shape), aligned.rio.height, aligned.rio.width, resampling,
+        tuple(aligned.shape),
+        aligned.rio.height,
+        aligned.rio.width,
+        resampling,
     )
     return aligned, clipped_target

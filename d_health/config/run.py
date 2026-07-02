@@ -22,14 +22,14 @@ def _default_population_groups() -> list[PopulationGroup]:
         PopulationGroup(
             name="adults",
             depth_thresholds=[
-                DepthThreshold(name="wading",   min_depth=0.1, ing=10.0, unit="ml/h"),
+                DepthThreshold(name="wading", min_depth=0.1, ing=10.0, unit="ml/h"),
                 DepthThreshold(name="swimming", min_depth=1.5, ing=30.0, unit="ml/h"),
             ],
         ),
         PopulationGroup(
             name="children",
             depth_thresholds=[
-                DepthThreshold(name="wading",   min_depth=0.1, ing=30.0, unit="ml/h"),
+                DepthThreshold(name="wading", min_depth=0.1, ing=30.0, unit="ml/h"),
                 DepthThreshold(name="swimming", min_depth=0.5, ing=50.0, unit="ml/h"),
             ],
         ),
@@ -199,7 +199,9 @@ class RunConfig(FrozenModel):
     def _check_sanitation_name_coverage(self) -> "RunConfig":
         country = self.exposure.load_country_indicators()
         country_names = {s.name for s in country.sanitation}
-        reduction_names = {r.name for r in self.settings.emissions.sanitation_reductions}
+        reduction_names = {
+            r.name for r in self.settings.emissions.sanitation_reductions
+        }
         missing = country_names - reduction_names
         if missing:
             raise ValueError(

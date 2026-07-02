@@ -1,4 +1,5 @@
 """Tiny stdlib-argparse CLI: ``d-health run --config <toml>``."""
+
 from __future__ import annotations
 
 import argparse
@@ -22,19 +23,28 @@ def _build_parser() -> argparse.ArgumentParser:
 
     run = subparsers.add_parser("run", help="Run the model from a TOML config.")
     run.add_argument(
-        "-c", "--config", type=Path, default=Path("config.toml"),
+        "-c",
+        "--config",
+        type=Path,
+        default=Path("config.toml"),
         help="Path to a configuration file (default: config.toml).",
     )
     run.add_argument(
-        "-o", "--out", type=Path, default=None,
+        "-o",
+        "--out",
+        type=Path,
+        default=None,
         help="Override output.out_dir from the config.",
     )
     run.add_argument(
-        "--no-plots", action="store_true",
+        "--no-plots",
+        action="store_true",
         help="Skip writing PNG plots (overrides output.plots).",
     )
     run.add_argument(
-        "-v", "--verbose", action="store_true",
+        "-v",
+        "--verbose",
+        action="store_true",
         help="Raise the d_health logger to DEBUG.",
     )
 
@@ -75,10 +85,12 @@ def _apply_overrides(config, out_dir: Path | None, no_plots: bool):
     """Return a copy of ``config`` with CLI flag overrides applied."""
     updates: dict = {}
     if out_dir is not None or no_plots:
-        output = config.output.model_copy(update={
-            **({"out_dir": out_dir} if out_dir is not None else {}),
-            **({"plots": False} if no_plots else {}),
-        })
+        output = config.output.model_copy(
+            update={
+                **({"out_dir": out_dir} if out_dir is not None else {}),
+                **({"plots": False} if no_plots else {}),
+            }
+        )
         updates["output"] = output
     return config.model_copy(update=updates) if updates else config
 

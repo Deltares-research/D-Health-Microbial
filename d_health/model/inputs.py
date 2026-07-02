@@ -31,10 +31,10 @@ class ModelInputs:
     don't need schema validation here — ``load_inputs`` produces this directly.
     """
 
-    flood: np.ndarray          # (rows, cols); flood depth in m, >0 flooded, 0/NaN dry
-    flood_meta: dict           # transform / crs / bounds / width / height / count
-    population: xr.DataArray   # (group, rows, cols); labelled group dimension
-    urban_rural: np.ndarray    # (rows, cols); 1=urban, 2=rural, 0=nodata
+    flood: np.ndarray  # (rows, cols); flood depth in m, >0 flooded, 0/NaN dry
+    flood_meta: dict  # transform / crs / bounds / width / height / count
+    population: xr.DataArray  # (group, rows, cols); labelled group dimension
+    urban_rural: np.ndarray  # (rows, cols); 1=urban, 2=rural, 0=nodata
 
 
 def load_inputs(exposure: ExposureConfig, event: EventConfig) -> ModelInputs:
@@ -72,9 +72,7 @@ def load_inputs(exposure: ExposureConfig, event: EventConfig) -> ModelInputs:
 
     # Reproject urban_rural onto that common grid with 'nearest' so the
     # categorical codes (1=urban, 2=rural, 0=nodata) survive resampling.
-    urban_rural_da, _ = align_rasters(
-        urban_rural_da, flood_da, resampling="nearest"
-    )
+    urban_rural_da, _ = align_rasters(urban_rural_da, flood_da, resampling="nearest")
 
     flood = flood_da.values.astype(np.float32)
     flood_meta = da_to_meta(flood_da)

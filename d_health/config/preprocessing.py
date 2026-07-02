@@ -34,15 +34,43 @@ CHILD_AGE_BINS_G2: tuple[str, ...] = ("00", "01", "05")
 """``global2_2015_2030`` children codes (ages 0-9), zero-padded."""
 
 ADULT_AGE_BINS_LEGACY: tuple[str, ...] = (
-    "10", "15", "20", "25", "30", "35", "40", "45",
-    "50", "55", "60", "65", "70", "75", "80",
+    "10",
+    "15",
+    "20",
+    "25",
+    "30",
+    "35",
+    "40",
+    "45",
+    "50",
+    "55",
+    "60",
+    "65",
+    "70",
+    "75",
+    "80",
 )
 """``global1_2000_2020`` adult codes (ages 10+): 5-year cohorts top-coded at
 80 (the product has no 85/90 cohorts)."""
 
 ADULT_AGE_BINS_G2: tuple[str, ...] = (
-    "10", "15", "20", "25", "30", "35", "40", "45",
-    "50", "55", "60", "65", "70", "75", "80", "85", "90",
+    "10",
+    "15",
+    "20",
+    "25",
+    "30",
+    "35",
+    "40",
+    "45",
+    "50",
+    "55",
+    "60",
+    "65",
+    "70",
+    "75",
+    "80",
+    "85",
+    "90",
 )
 """``global2_2015_2030`` adult codes (ages 10+): 5-year cohorts top-coded at
 90."""
@@ -95,7 +123,7 @@ class WorldPopConfig(FrozenModel):
     layout: WorldPopLayout = Field(
         default="global1_2000_2020",
         description=(
-            "WorldPop product family / URL layout. ``\"global1_2000_2020\"`` "
+            'WorldPop product family / URL layout. ``"global1_2000_2020"`` '
             "(default) is the constrained 2020 product; "
             "``\"global2_2015_2030\"`` is the newer R2025A 'Global 2' "
             "re-estimate. Drives the URL structure, filename convention, "
@@ -111,21 +139,21 @@ class WorldPopConfig(FrozenModel):
             "``global1_2000_2020`` this selects the ``Global_2000_2020_"
             "Constrained`` vs ``Global_2000_2020`` series and the "
             "``_constrained`` filename suffix; for ``global2_2015_2030`` it "
-            "drives ``type_code`` (``\"CN\"``/``\"UC\"``) and ``type_dir``."
+            'drives ``type_code`` (``"CN"``/``"UC"``) and ``type_dir``.'
         ),
     )
     release: str = Field(
         default="R2025A",
         description=(
             "Release tag for the ``global2_2015_2030`` layout (e.g. "
-            "``\"R2025A\"``). Ignored by ``global1_2000_2020``."
+            '``"R2025A"``). Ignored by ``global1_2000_2020``.'
         ),
     )
     version: str = Field(
         default="v1",
         description=(
             "Sub-version for the ``global2_2015_2030`` layout (e.g. "
-            "``\"v1\"``). Ignored by ``global1_2000_2020``."
+            '``"v1"``). Ignored by ``global1_2000_2020``.'
         ),
     )
     resolution: Literal["100m", "1km"] = Field(
@@ -140,7 +168,11 @@ class WorldPopConfig(FrozenModel):
     def series(self) -> str:
         """Top-level WorldPop series folder, derived from layout + constrained."""
         if self.layout == "global1_2000_2020":
-            return "Global_2000_2020_Constrained" if self.constrained else "Global_2000_2020"
+            return (
+                "Global_2000_2020_Constrained"
+                if self.constrained
+                else "Global_2000_2020"
+            )
         return "Global_2015_2030"
 
     @property
@@ -193,7 +225,7 @@ class GHSSmodConfig(FrozenModel):
     release: str = Field(
         default="R2023A",
         description=(
-            "JRC release tag (e.g. ``\"R2023A\"``). Free string because JRC "
+            'JRC release tag (e.g. ``"R2023A"``). Free string because JRC '
             "adds new releases over time."
         ),
     )
@@ -201,7 +233,7 @@ class GHSSmodConfig(FrozenModel):
         default="V2-0",
         description=(
             "JRC product version. Note the JRC inconsistency: the URL path "
-            "uses ``\"V2-0\"`` while the filename uses ``\"V2_0\"`` — the "
+            'uses ``"V2-0"`` while the filename uses ``"V2_0"`` — the '
             "``version_filename`` property handles the substitution."
         ),
     )
@@ -216,9 +248,9 @@ class GHSSmodConfig(FrozenModel):
     resolution: str = Field(
         default="30ss",
         description=(
-            "JRC resolution token. Known values: ``\"30ss\"`` (30 arc-"
-            "seconds, EPSG:4326), ``\"1000\"`` (1 km, EPSG:54009), "
-            "``\"100\"`` (100 m, EPSG:54009)."
+            'JRC resolution token. Known values: ``"30ss"`` (30 arc-'
+            'seconds, EPSG:4326), ``"1000"`` (1 km, EPSG:54009), '
+            '``"100"`` (100 m, EPSG:54009).'
         ),
     )
 
@@ -251,9 +283,15 @@ class GHSSmodConfig(FrozenModel):
 
 DEFAULT_INDICATOR_CODES: tuple[str, ...] = (
     "NY.GDP.PCAP.CD",
-    "SH.STA.ODFC.ZS", "SH.STA.ODFC.RU.ZS", "SH.STA.ODFC.UR.ZS",
-    "SH.STA.BASS.ZS", "SH.STA.BASS.RU.ZS", "SH.STA.BASS.UR.ZS",
-    "SH.STA.SMSS.ZS", "SH.STA.SMSS.RU.ZS", "SH.STA.SMSS.UR.ZS",
+    "SH.STA.ODFC.ZS",
+    "SH.STA.ODFC.RU.ZS",
+    "SH.STA.ODFC.UR.ZS",
+    "SH.STA.BASS.ZS",
+    "SH.STA.BASS.RU.ZS",
+    "SH.STA.BASS.UR.ZS",
+    "SH.STA.SMSS.ZS",
+    "SH.STA.SMSS.RU.ZS",
+    "SH.STA.SMSS.UR.ZS",
 )
 """WDI indicator codes the default ``WDIConfig`` fetches: GDP per capita
 (current USD) plus the open-defecation / basic-sanitation / safely-managed-
@@ -267,7 +305,7 @@ class WDIConfig(FrozenModel):
     indicator_codes: tuple[str, ...] = Field(
         default=DEFAULT_INDICATOR_CODES,
         description=(
-            "Indicator codes (e.g. ``\"NY.GDP.PCAP.CD\"``) to fetch via "
+            'Indicator codes (e.g. ``"NY.GDP.PCAP.CD"``) to fetch via '
             "``wbgapi``. Each code becomes one row per economy in the output "
             "CSV."
         ),

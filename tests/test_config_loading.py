@@ -1,4 +1,5 @@
 """Config loading: object defaults, relative-path resolution, country indicators."""
+
 from __future__ import annotations
 
 from textwrap import dedent
@@ -16,7 +17,10 @@ def _write(tmp_path, name: str, body: str):
 
 
 def test_load_run_config_minimal_uses_object_defaults(tmp_path):
-    indicators = _write(tmp_path, "ind.toml", """
+    indicators = _write(
+        tmp_path,
+        "ind.toml",
+        """
         country_code = "SUR"
         gdp_per_capita = 7000.0
         [[sanitation]]
@@ -35,9 +39,13 @@ def test_load_run_config_minimal_uses_object_defaults(tmp_path):
         name = "None"
         urban = 5
         rural = 10
-    """)
+    """,
+    )
     # No [settings] table at all: every field defaults to a bundled object.
-    run = _write(tmp_path, "config.toml", f"""
+    run = _write(
+        tmp_path,
+        "config.toml",
+        f"""
         [exposure]
         population = "p.tif"
         urban_rural = "u.tif"
@@ -49,7 +57,8 @@ def test_load_run_config_minimal_uses_object_defaults(tmp_path):
         [output]
         out_dir = "out"
         plots = false
-    """)
+    """,
+    )
     cfg = load_run_config(run)
     # Model defaults filled in from Python objects
     assert cfg.settings.pathogen.selected == "E.coli"
@@ -66,15 +75,22 @@ def test_load_run_config_resolves_relative_inputs_against_run_toml(tmp_path):
     # config.toml lives in a subdirectory; all input paths are relative to it.
     cfg_dir = tmp_path / "configs"
     cfg_dir.mkdir()
-    _write(cfg_dir, "ind.toml", """
+    _write(
+        cfg_dir,
+        "ind.toml",
+        """
         country_code = "SUR"
         gdp_per_capita = 7000.0
         [[sanitation]]
         name = "Safe"
         urban = 100
         rural = 100
-    """)
-    run = _write(cfg_dir, "config.toml", """
+    """,
+    )
+    run = _write(
+        cfg_dir,
+        "config.toml",
+        """
         [exposure]
         population = "p.tif"
         urban_rural = "u.tif"
@@ -86,7 +102,8 @@ def test_load_run_config_resolves_relative_inputs_against_run_toml(tmp_path):
         [output]
         out_dir = "out"
         plots = false
-    """)
+    """,
+    )
     cfg = load_run_config(run)
     # Relative input paths are resolved against the config.toml's directory,
     # independent of the current working directory.
@@ -97,15 +114,22 @@ def test_load_run_config_resolves_relative_inputs_against_run_toml(tmp_path):
 
 
 def test_load_run_config_user_overrides_population_groups(tmp_path):
-    indicators = _write(tmp_path, "ind.toml", """
+    indicators = _write(
+        tmp_path,
+        "ind.toml",
+        """
         country_code = "SUR"
         gdp_per_capita = 7000.0
         [[sanitation]]
         name = "Safe"
         urban = 100
         rural = 100
-    """)
-    run = _write(tmp_path, "config.toml", f"""
+    """,
+    )
+    run = _write(
+        tmp_path,
+        "config.toml",
+        f"""
         [exposure]
         population = "p.tif"
         urban_rural = "u.tif"
@@ -124,22 +148,30 @@ def test_load_run_config_user_overrides_population_groups(tmp_path):
           {{ name = "wading",   min_depth = 0.1, ing = 8.0,  unit = "ml/h" }},
           {{ name = "swimming", min_depth = 1.5, ing = 40.0, unit = "ml/h" }},
         ]
-    """)
+    """,
+    )
     cfg = load_run_config(run)
     # User list replaces the default population_groups wholesale.
     assert [g.name for g in cfg.settings.population_groups] == ["elderly"]
 
 
 def test_country_indicators_missing_field_raises(tmp_path):
-    indicators = _write(tmp_path, "bad.toml", """
+    indicators = _write(
+        tmp_path,
+        "bad.toml",
+        """
         country_code = "SUR"
         # missing gdp_per_capita
         [[sanitation]]
         name = "Safe"
         urban = 100
         rural = 100
-    """)
-    run = _write(tmp_path, "config.toml", f"""
+    """,
+    )
+    run = _write(
+        tmp_path,
+        "config.toml",
+        f"""
         [exposure]
         population = "p.tif"
         urban_rural = "u.tif"
@@ -151,7 +183,8 @@ def test_country_indicators_missing_field_raises(tmp_path):
         [output]
         out_dir = "out"
         plots = false
-    """)
+    """,
+    )
     # The exposure validator parses the country TOML at load time and fails.
     with pytest.raises(ValidationError, match="gdp_per_capita"):
         load_run_config(run)

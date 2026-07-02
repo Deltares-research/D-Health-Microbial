@@ -20,8 +20,8 @@ def derive_flood_class_edges(groups: list[PopulationGroup]) -> tuple[float, ...]
     """
     edges: set[float] = set()
     for g in groups:
-        for thr in g.depth_thresholds:
-            edges.add(float(thr.min_depth))
+        for the in g.depth_thresholds:
+            edges.add(float(the.min_depth))
     return tuple(sorted(edges))
 
 

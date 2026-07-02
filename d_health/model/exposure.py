@@ -31,15 +31,15 @@ def calc_dose_per_group(
     # Build (lower, upper) bands from sorted min_depths. Last band's upper is +inf.
     thresholds = group.depth_thresholds
     n = len(thresholds)
-    for i, thr in enumerate(thresholds):
-        lower = thr.min_depth
+    for i, the in enumerate(thresholds):
+        lower = the.min_depth
         upper = thresholds[i + 1].min_depth if i + 1 < n else np.inf
         if i + 1 < n:
             mask = (depth >= lower) & (depth < upper)
         else:
             mask = depth >= lower
         # Ingestion in mL/h, normalised; divide by 100 because conc is per 100 mL.
-        ing_per_h = thr.ingestion_ml_per_h(event_in_hours)
+        ing_per_h = the.ingestion_ml_per_h(event_in_hours)
         out[mask] = ing_per_h * pathogen_conc[mask] / 100.0
     return out
 
