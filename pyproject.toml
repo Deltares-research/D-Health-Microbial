@@ -60,6 +60,7 @@ platforms = ["win-64"]
 
 [tool.pixi.dependencies]
 python = "3.12.*"
+numpy = "*"
 gdal = "*"
 rasterio = "*"
 openturns = "*"
@@ -67,7 +68,13 @@ tomli-w = ">=1.2.0,<2"
 xarray = ">=2026.4.0,<2027"
 rioxarray = ">=0.22.0,<0.23"
 netcdf4 = ">=1.7.4,<2"
-pre-commit = "*"
+
+[tool.pixi.tasks]
+tests = { cmd = "pytest", default-environment = "test" }
+ruff = { cmd = "ruff check .", default-environment = "lint" }
+black = { cmd = "black --check .", default-environment = "lint" }
+typos = { cmd = "typos .", default-environment = "lint" }
+precommit = { cmd = "pre-commit run --all-files --show-diff-on-failure", default-environment = "lint" }
 
 [tool.pixi.feature.editable.pypi-dependencies]
 d_health = { path = ".", editable = true }
@@ -75,6 +82,13 @@ d_health = { path = ".", editable = true }
 [tool.pixi.feature.test.pypi-dependencies]
 d_health = { path = ".", editable = true, extras = ["test"] }
 
+[tool.pixi.feature.lint.pypi-dependencies]
+ruff = "*"
+black = "*"
+typos = "*"
+pre-commit = "*"
+
 [tool.pixi.environments]
 default = { features = ["notebook", "editable"] }
 test = { features = ["test"] }
+lint = { features = ["lint"] }
