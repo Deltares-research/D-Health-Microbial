@@ -89,6 +89,6 @@ typos = "*"
 pre-commit = "*"
 
 [tool.pixi.environments]
-default = { features = ["notebook", "editable"] }
+default = { features = ["notebook", "editable", "lint"] }
 test = { features = ["test"] }
 lint = { features = ["lint"] }
