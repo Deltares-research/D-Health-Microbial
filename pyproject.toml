@@ -67,6 +67,7 @@ tomli-w = ">=1.2.0,<2"
 xarray = ">=2026.4.0,<2027"
 rioxarray = ">=0.22.0,<0.23"
 netcdf4 = ">=1.7.4,<2"
+pre-commit = "*"
 
 [tool.pixi.feature.editable.pypi-dependencies]
 d_health = { path = ".", editable = true }
