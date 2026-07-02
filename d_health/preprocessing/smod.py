@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import tempfile
 import zipfile
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -12,9 +11,11 @@ import rasterio
 import requests
 from rasterio.mask import mask as rio_mask
 
+from d_health.config.preprocessing import GHSSmodConfig
+from d_health.io import from_numpy, write_netcdf
+
 logger = logging.getLogger(__name__)
 
-JRC_BASE = "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL"
 SMOD_CRS = "EPSG:4326"  # 30 arc-second product is published in WGS84 lat/lon
 
 # Urban / Rural reclassification of the GHS-SMOD class codes.
@@ -24,44 +25,7 @@ RURAL_CLASSES: tuple[int, ...] = (13, 12, 11)
 OUTPUT_NODATA = 0
 OUTPUT_CLASSES: dict[int, str] = {1: "urban", 2: "rural"}
 
-
-@dataclass(frozen=True)
-class GHSSmodConfig:
-    """Selects a GHS-SMOD product variant on the JRC open-data server.
-
-    Defaults reproduce ``GHS_SMOD_E2025_GLOBE_R2023A_4326_30ss_V2_0.tif`` —
-    the 2025 epoch, R2023A release, 30 arc-second (~1 km) global raster in
-    EPSG:4326.
-    """
-
-    epoch: int = 2025
-    release: str = "R2023A"
-    version: str = "V2-0"
-    crs_code: str = "4326"
-    resolution: str = "30ss"
-
-    @property
-    def version_filename(self) -> str:
-        # JRC convention: ``V2-0`` in the URL path, ``V2_0`` in the filename.
-        return self.version.replace("-", "_")
-
-    @property
-    def stem(self) -> str:
-        return (
-            f"GHS_SMOD_E{self.epoch}_GLOBE_{self.release}"
-            f"_{self.crs_code}_{self.resolution}"
-        )
-
-    @property
-    def zip_url(self) -> str:
-        return (
-            f"{JRC_BASE}/GHS_SMOD_GLOBE_{self.release}/"
-            f"{self.stem}/{self.version}/{self.stem}_{self.version_filename}.zip"
-        )
-
-    @property
-    def tif_name(self) -> str:
-        return f"{self.stem}_{self.version_filename}.tif"
+__all__ = ["GHSSmodConfig", "get_smod_data"]
 
 
 def _download_zip(url: str, dest: Path) -> Path:
@@ -177,7 +141,7 @@ def _reclassify(arr: np.ndarray) -> np.ndarray:
 
 
 def get_smod_data(
-    output_dir: Path | str,
+    output_path: Path | str,
     *,
     clip: Any = None,
     cfg: GHSSmodConfig = GHSSmodConfig(),
@@ -195,12 +159,14 @@ def get_smod_data(
 
     The downloaded ZIP and extracted full-globe TIF live in a temporary
     directory and are removed before this function returns; only the
-    reclassified raster persists in ``output_dir``.
+    reclassified raster persists at ``output_path``.
 
     Parameters
     ----------
-    output_dir : Path | str
-        Directory the reclassified GeoTIFF is written into.
+    output_path : Path | str
+        Full path of the reclassified netCDF to write (a ``.tif``/``.tiff``
+        suffix is replaced with ``.nc``). Parent directories are created if
+        they don't exist.
     clip : optional
         Region of interest. ``None`` reclassifies the full global raster.
         Accepts: a shapely geometry, a GeoJSON dict, a GeoDataFrame/GeoSeries
@@ -212,10 +178,13 @@ def get_smod_data(
     Returns
     -------
     Path
-        Path to the reclassified Urban/Rural GeoTIFF.
+        Path to the reclassified Urban/Rural netCDF (``output_path`` with a
+        ``.nc`` suffix).
     """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    out_path = Path(output_path)
+    if out_path.suffix.lower() in {".tif", ".tiff"}:
+        out_path = out_path.with_suffix(".nc")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     clip_geoms = _normalize_clip(clip, SMOD_CRS)
     logger.info(
@@ -250,25 +219,17 @@ def get_smod_data(
     reclassified = _reclassify(data)
     del data
 
-    out_name = f"{cfg.stem}_{cfg.version_filename}_urban_rural.tif"
-    out_path = output_dir / out_name
-    profile = {
-        "driver": "GTiff",
-        "count": 1,
-        "dtype": "uint8",
-        "crs": src_crs,
-        "transform": transform,
-        "width": width,
-        "height": height,
-        "nodata": OUTPUT_NODATA,
-        "compress": "deflate",
-    }
-    with rasterio.open(out_path, "w", **profile) as dst:
-        dst.write(reclassified, 1)
-        dst.descriptions = ("urban_rural",)
-        dst.update_tags(1, **{
-            f"class_{code}": label for code, label in OUTPUT_CLASSES.items()
-        })
+    urban_rural = from_numpy(
+        reclassified,
+        transform,
+        src_crs,
+        name="urban_rural",
+        nodata=OUTPUT_NODATA,
+    )
+    urban_rural.attrs.update(
+        {f"class_{code}": label for code, label in OUTPUT_CLASSES.items()}
+    )
+    write_netcdf(urban_rural, out_path, descriptions=("urban_rural",))
 
     counts = {
         "urban": int((reclassified == 1).sum()),

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -11,45 +10,49 @@ import rasterio
 import requests
 from rasterio.mask import mask as rio_mask
 
+from d_health.config.preprocessing import (
+    ADULT_AGE_BINS,
+    CHILD_AGE_BINS,
+    WorldPopConfig,
+)
+from d_health.io import from_numpy, write_netcdf
+
 logger = logging.getLogger(__name__)
 
 WORLDPOP_BASE = "https://data.worldpop.org/GIS/AgeSex_structures"
 WORLDPOP_CRS = "EPSG:4326"
 
-CHILD_AGE_BINS: tuple[str, ...] = ("00", "01", "05")
-ADULT_AGE_BINS: tuple[str, ...] = (
-    "10", "15", "20", "25", "30", "35", "40", "45",
-    "50", "55", "60", "65", "70", "75", "80", "85", "90",
-)
 SEXES: tuple[str, ...] = ("m", "f")
 
-
-@dataclass(frozen=True)
-class WorldPopConfig:
-    series: str = "Global_2015_2030"
-    release: str = "R2025A"
-    version: str = "v1"
-    resolution: str = "100m"
-    constrained: bool = True
-
-    @property
-    def type_code(self) -> str:
-        return "CN" if self.constrained else "UC"
-
-    @property
-    def type_dir(self) -> str:
-        return "constrained" if self.constrained else "unconstrained"
+__all__ = ["WorldPopConfig", "CHILD_AGE_BINS", "ADULT_AGE_BINS", "get_population_data"]
 
 
 def _build_url(country: str, year: int, age: str, sex: str, cfg: WorldPopConfig) -> str:
-    """Build the R2025A URL for a per-age, per-sex raster.
+    """Build the WorldPop download URL for a per-age, per-sex raster.
 
-    Filename convention: ``{iso_lower}_{sex_lower}_{age}_{year}_CN_100m_R2025A_v1.tif``
-    e.g. ``sur_f_00_2020_CN_100m_R2025A_v1.tif`` (Suriname, female, 0-1 yr, 2020).
+    Two product layouts are supported (selected by ``cfg.layout``):
+
+    ``global1_2000_2020`` (default)
+        Flat path ``{series}/{year}/{ISO}/`` with filenames
+        ``{iso}_{sex}_{age}_{year}_constrained.tif`` (the ``_constrained``
+        suffix is dropped for the unconstrained variant), e.g.
+        ``moz_f_0_2020_constrained.tif``.
+
+    ``global2_2015_2030``
+        Nested path ``{series}/{release}/{year}/{ISO}/{version}/{resolution}/
+        {type_dir}/`` with filenames ``{iso}_{sex}_{age}_{year}_{type_code}_
+        {resolution}_{release}_{version}.tif``, e.g.
+        ``moz_f_00_2020_CN_100m_R2025A_v1.tif``.
     """
     iso_upper = country.upper()
     iso_lower = country.lower()
     sex_lower = sex.lower()
+
+    if cfg.layout == "global1_2000_2020":
+        suffix = "_constrained" if cfg.constrained else ""
+        filename = f"{iso_lower}_{sex_lower}_{age}_{year}{suffix}.tif"
+        return f"{WORLDPOP_BASE}/{cfg.series}/{year}/{iso_upper}/{filename}"
+
     filename = (
         f"{iso_lower}_{sex_lower}_{age}_{year}_{cfg.type_code}_"
         f"{cfg.resolution}_{cfg.release}_{cfg.version}.tif"
@@ -161,21 +164,21 @@ def _read_one(
 def get_population_data(
     country: str,
     year: int,
-    output_dir: Path | str,
+    output_path: Path | str,
     *,
     clip: Any = None,
     cfg: WorldPopConfig = WorldPopConfig(),
-    child_ages: Sequence[str] = CHILD_AGE_BINS,
-    adult_ages: Sequence[str] = ADULT_AGE_BINS,
+    child_ages: Sequence[str] | None = None,
+    adult_ages: Sequence[str] | None = None,
 ) -> Path:
     """Download age- and sex-disaggregated WorldPop rasters and aggregate them
-    into a 3-band GeoTIFF.
+    into a netCDF with a labelled ``group`` dimension.
 
-    Bands: 1 = children (0-9 yr), 2 = adults (10+ yr), 3 = total.
+    Groups: ``children`` (0-9 yr), ``adults`` (10+ yr), ``total``.
 
     The per-age rasters are downloaded into a temporary directory, clipped (if
     a ``clip`` geometry is supplied) and summed in memory; only the final
-    combined raster is persisted to ``output_dir``. Each source file is
+    combined raster is persisted to ``output_path``. Each source file is
     deleted right after it's consumed, so peak temp-disk use stays small.
 
     Parameters
@@ -184,8 +187,10 @@ def get_population_data(
         ISO3 country code (case-insensitive), e.g. ``"SUR"``.
     year : int
         Year in the 2015-2030 R2025A coverage.
-    output_dir : Path | str
-        Directory to write the final combined raster.
+    output_path : Path | str
+        Full path of the final combined netCDF to write (a ``.tif``/``.tiff``
+        suffix is replaced with ``.nc``). Parent directories are created if
+        they don't exist.
     clip : optional
         Region of interest. If provided, every per-age raster is masked to
         this geometry before summing, and the final output covers only this
@@ -194,24 +199,37 @@ def get_population_data(
         EPSG:4326), or a bounds tuple ``(xmin, ymin, xmax, ymax)`` in
         EPSG:4326.
     cfg : WorldPopConfig
-        Release / series / resolution / constrained-vs-unconstrained settings.
-    child_ages, adult_ages : Sequence[str]
-        Age-bin codes that map to the children and adults output bands.
+        Product layout / series / release / constrained-vs-unconstrained
+        settings. The default fetches the ``Global_2000_2020_Constrained``
+        2020 product.
+    child_ages, adult_ages : Sequence[str], optional
+        Age-bin codes that map to the children and adults output bands. When
+        ``None`` (the default) they are taken from ``cfg`` (``cfg.child_age_bins``
+        / ``cfg.adult_age_bins``), which already match the active layout's
+        age-code padding and adult cap. Pass explicit codes only to override.
 
     Returns
     -------
     Path
-        Path to the 3-band combined GeoTIFF.
+        Path to the combined netCDF (``output_path`` with a ``.nc`` suffix).
     """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    iso_lower = country.lower()
+    if child_ages is None:
+        child_ages = cfg.child_age_bins
+    if adult_ages is None:
+        adult_ages = cfg.adult_age_bins
+    child_ages = tuple(child_ages)
+    adult_ages = tuple(adult_ages)
+
+    out_path = Path(output_path)
+    if out_path.suffix.lower() in {".tif", ".tiff"}:
+        out_path = out_path.with_suffix(".nc")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     clip_geoms = _normalize_clip(clip)
     n_expected = len(child_ages + adult_ages) * len(SEXES)
     logger.info(
         "Fetching WorldPop %s %d (%s, %s) — %d files, clip=%s",
-        country.upper(), year, cfg.release, cfg.resolution,
+        country.upper(), year, cfg.series, cfg.type_dir,
         n_expected, "yes" if clip_geoms else "no",
     )
     missing: list[str] = []
@@ -255,13 +273,22 @@ def get_population_data(
 
     total = children + adults
 
-    profile.update(driver="GTiff", count=3, dtype="float32", compress="deflate")
-    out_path = output_dir / f"{iso_lower}_population_{year}_combined.tif"
-    with rasterio.open(out_path, "w", **profile) as dst:
-        dst.write(children.astype(np.float32), 1)
-        dst.write(adults.astype(np.float32), 2)
-        dst.write(total.astype(np.float32), 3)
-        dst.descriptions = ("children_0_9", "adults_10_plus", "total")
+    data = np.stack(
+        [children.astype(np.float32), adults.astype(np.float32), total.astype(np.float32)],
+        axis=0,
+    )
+    population = from_numpy(
+        data,
+        profile["transform"],
+        profile["crs"],
+        name="population",
+        group=("children", "adults", "total"),
+    )
+    write_netcdf(
+        population,
+        out_path,
+        descriptions=("children_0_9", "adults_10_plus", "total"),
+    )
 
     if missing:
         logger.warning(

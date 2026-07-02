@@ -62,12 +62,64 @@ pixi run python -m ipykernel install --user --name d_health --display-name "Pyth
 ```
 .
 ├── d_health/            # Python package
-│   ├── __init__.py
-│   └── get_population_data.py
+│   ├── cli.py           # `d-health run -c config.toml` entry point
+│   ├── config/          # pydantic run configuration (exposure/event/settings/output)
+│   ├── preprocessing/   # build inputs (WorldPop population, GHS-SMOD, World Bank indicators)
+│   ├── model/           # pipeline: emissions → concentration → dose → risk → infected
+│   ├── postprocessing/  # flood classes, coverage, risk classes, plots
+│   ├── io.py            # raster read/write helpers
+│   └── geo.py           # reprojection / grid alignment
+├── examples/
+│   ├── detailed/        # full step-by-step notebooks (preprocessing + run)
+│   └── quickbuild/      # fast AOI setup + multi-scenario run notebooks
+├── tests/               # pytest suite
 ├── pyproject.toml       # project metadata + pixi config
 ├── pixi.lock            # locked dependency versions (commit this)
 └── README.md
 ```
+
+## AOI-first setup workflow
+
+You can now generate exposure inputs from a single AOI and write a reusable
+`settings.toml` (without flood map) using either Python or CLI.
+
+### Python API
+
+```python
+from d_health import model_setup, write_run_config_from_setup, run_model_from_toml
+
+# Paramaribo bbox: xmin, ymin, xmax, ymax (EPSG:4326)
+aoi = (-55.27, 5.78, -55.10, 5.93)
+
+setup = model_setup(aoi=aoi, root_dir="examples/quickbuild/data/setup_paramaribo")
+print(setup.country_code, setup.settings_toml)
+
+# Later, inject a flood map and run
+run_toml = write_run_config_from_setup(
+	settings_toml=setup.settings_toml,
+	flood_depth_map="examples/quickbuild/data/flood_extremes/flood_wl3m_paramaribo.tif",
+	run_config_path="examples/quickbuild/outputs/run/scenario_wl3m/config.toml",
+	output_out_dir="examples/quickbuild/outputs/run/scenario_wl3m",
+)
+outputs = run_model_from_toml(run_toml)
+print(outputs.totals)
+```
+
+### CLI
+
+```bash
+d-health setup --bbox -55.27 5.78 -55.10 5.93 --root examples/quickbuild/data/setup_paramaribo
+```
+
+The setup command writes:
+
+- `data/*.nc` and `data/*_indicators.toml` exposure inputs
+- `settings.toml` (exposure/settings/output/metadata; no event section)
+
+## Examples tracks
+
+- Detailed: `examples/detailed/README.md`
+- Quickbuild: `examples/quickbuild/README.md`
 
 ## Adding dependencies
 

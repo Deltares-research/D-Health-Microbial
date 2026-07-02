@@ -1,23 +1,36 @@
 import logging as _logging
 import sys as _sys
 
-from d_health.get_population_data import (
-    WorldPopConfig,
-    get_population_data,
+from d_health.config import (
+    RunConfig,
+    load_run_config,
 )
-from d_health.get_smod_data import (
+from d_health.geo import align_rasters
+from d_health.model import (
+    ModelSetupOverrides,
+    ModelSetupResult,
+    ModelOutputs,
+    derive_country_from_aoi,
+    model_setup,
+    run_model,
+    run_model_from_toml,
+    write_run_config_from_setup,
+)
+from d_health.preprocessing import (
     GHSSmodConfig,
-    get_smod_data,
-)
-from d_health.get_world_bank_data import (
     WDIConfig,
+    WorldPopConfig,
+    build_from_wdi,
+    get_country_indicators,
+    get_population_data,
+    get_smod_data,
     get_world_bank_data,
 )
-from d_health.utils import align_rasters
 
 __version__ = "0.1.0"
 
 __all__ = [
+    # preprocessing
     "WorldPopConfig",
     "get_population_data",
     "GHSSmodConfig",
@@ -25,6 +38,19 @@ __all__ = [
     "WDIConfig",
     "get_world_bank_data",
     "align_rasters",
+    "build_from_wdi",
+    "get_country_indicators",
+    # model
+    "RunConfig",
+    "ModelOutputs",
+    "ModelSetupOverrides",
+    "ModelSetupResult",
+    "load_run_config",
+    "derive_country_from_aoi",
+    "model_setup",
+    "write_run_config_from_setup",
+    "run_model",
+    "run_model_from_toml",
     "__version__",
 ]
 

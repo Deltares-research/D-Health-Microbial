@@ -10,17 +10,22 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "numpy",
     "rasterio",
+    "xarray",
+    "rioxarray",
+    "netcdf4",
     "pyyaml",
     "dask",
     "requests",
     "gdal",
     "openturns",
     "matplotlib",
-    "tifffile",
     "utm",
     "salib",
     "seaborn",
     "wbgapi",
+    "pyproj",
+    "pydantic>=2.6",
+    "tomli_w",
 ]
 dynamic = ["version"]
 
@@ -29,6 +34,13 @@ notebook = [
     "jupyter",
     "ipykernel",
 ]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
+[project.scripts]
+d-health = "d_health.cli:main"
 
 ### setuptools ###
 [tool.setuptools]
@@ -51,9 +63,17 @@ python = "3.12.*"
 gdal = "*"
 rasterio = "*"
 openturns = "*"
+tomli-w = ">=1.2.0,<2"
+xarray = ">=2026.4.0,<2027"
+rioxarray = ">=0.22.0,<0.23"
+netcdf4 = ">=1.7.4,<2"
 
 [tool.pixi.feature.editable.pypi-dependencies]
 d_health = { path = ".", editable = true }
 
+[tool.pixi.feature.test.pypi-dependencies]
+d_health = { path = ".", editable = true, extras = ["test"] }
+
 [tool.pixi.environments]
 default = { features = ["notebook", "editable"] }
+test = { features = ["test"] }

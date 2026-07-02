@@ -1,36 +1,21 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 import wbgapi as wb
 
-logger = logging.getLogger(__name__)
+from d_health.config.preprocessing import DEFAULT_INDICATOR_CODES, WDIConfig
 
-# GDP per capita + WASH (open-defecation / basic-sanitation / safely-managed-sanitation,
-# total + rural + urban breakdowns).
-DEFAULT_INDICATOR_CODES: tuple[str, ...] = (
-    "NY.GDP.PCAP.CD",
-    "SH.STA.ODFC.ZS", "SH.STA.ODFC.RU.ZS", "SH.STA.ODFC.UR.ZS",
-    "SH.STA.BASS.ZS", "SH.STA.BASS.RU.ZS", "SH.STA.BASS.UR.ZS",
-    "SH.STA.SMSS.ZS", "SH.STA.SMSS.RU.ZS", "SH.STA.SMSS.UR.ZS",
-)
+logger = logging.getLogger(__name__)
 
 OUTPUT_COLUMNS: tuple[str, ...] = (
     "Country Name", "Country Code", "Indicator Name", "Indicator Code",
     "Latest Year", "Latest Value",
 )
 
-
-@dataclass(frozen=True)
-class WDIConfig:
-    """Selects which WDI indicators to keep and the output CSV separator."""
-
-    indicator_codes: tuple[str, ...] = DEFAULT_INDICATOR_CODES
-    csv_sep: str = ";"
+__all__ = ["WDIConfig", "DEFAULT_INDICATOR_CODES", "fetch_wdi", "get_world_bank_data"]
 
 
 def _fetch_latest(indicator_codes: tuple[str, ...]) -> pd.DataFrame:
@@ -40,7 +25,7 @@ def _fetch_latest(indicator_codes: tuple[str, ...]) -> pd.DataFrame:
     Uses ``mrnev=1`` so wbgapi returns at most one row per
     ``(economy, indicator)`` — the latest year for which the value isn't
     null. Economies for which an indicator has never been reported are
-    simply absent (matching the old behaviour of ``dropna``).
+    simply absent from the result (as if dropped via ``dropna``).
     """
     rows: list[dict[str, object]] = []
     for r in wb.data.fetch(list(indicator_codes), mrnev=1, labels=True):
@@ -64,41 +49,19 @@ def _fetch_latest(indicator_codes: tuple[str, ...]) -> pd.DataFrame:
     )
 
 
-def get_world_bank_data(
-    output_dir: Path | str,
-    *,
-    cfg: WDIConfig = WDIConfig(),
-) -> Path:
-    """Fetch World Bank Development Indicators via the v2 REST API, keep the
-    latest available value per country x indicator, and save a CSV.
+def fetch_wdi(cfg: WDIConfig = WDIConfig()) -> pd.DataFrame:
+    """Fetch the latest WDI value per ``(economy, indicator)`` as a DataFrame.
 
-    Pipeline: call ``api.worldbank.org/v2`` via the ``wbgapi`` package for the
-    requested indicator codes with ``mrnev=1`` (most recent non-empty value
-    per economy x indicator), then write a long table to
-    ``output_dir / wdi_<YYYY-MM-DD>.csv``.
+    The in-memory counterpart of :func:`get_world_bank_data` (which adds a CSV
+    write). Shared by ``get_world_bank_data`` and
+    :func:`d_health.preprocessing.country_indicators.get_country_indicators`,
+    so the live one-call TOML path and the CSV path read identical data.
 
-    The returned table contains one row per ``(country, indicator)``. Both
-    real countries and World Bank regional / income aggregates are included
-    (matching the contents of the ``WDICSV.csv`` bulk download).
-
-    Parameters
-    ----------
-    output_dir : Path | str
-        Directory the filtered CSV is written into.
-    cfg : WDIConfig
-        Indicator codes to fetch and CSV separator.
-
-    Returns
-    -------
-    Path
-        Path to ``wdi_<YYYY-MM-DD>.csv`` in ``output_dir``.
+    Returns a long table with the columns in ``OUTPUT_COLUMNS`` — one row per
+    ``(country, indicator)`` for both real countries and World Bank aggregates.
+    Raises ``RuntimeError`` if the API returns nothing.
     """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    logger.info(
-        "WDI fetch via wbgapi — %d indicators", len(cfg.indicator_codes),
-    )
+    logger.info("WDI fetch via wbgapi — %d indicators", len(cfg.indicator_codes))
     df = _fetch_latest(cfg.indicator_codes)
     if df.empty:
         raise RuntimeError(
@@ -109,9 +72,48 @@ def get_world_bank_data(
         "Received %d rows across %d economies x %d indicators",
         len(df), df["Country Code"].nunique(), df["Indicator Code"].nunique(),
     )
+    return df
 
-    today_str = datetime.today().strftime("%Y-%m-%d")
-    out_path = output_dir / f"wdi_{today_str}.csv"
+
+def get_world_bank_data(
+    output_path: Path | str,
+    *,
+    cfg: WDIConfig = WDIConfig(),
+) -> Path:
+    """Fetch World Bank Development Indicators via the v2 REST API, keep the
+    latest available value per country x indicator, and save a CSV.
+
+    Pipeline: call ``api.worldbank.org/v2`` via the ``wbgapi`` package for the
+    requested indicator codes with ``mrnev=1`` (most recent non-empty value
+    per economy x indicator), then write a long table to ``output_path``.
+
+    The returned table contains one row per ``(country, indicator)``. Both
+    real countries and World Bank regional / income aggregates are included
+    (matching the contents of the ``WDICSV.csv`` bulk download).
+
+    To go straight to the model's per-country ``*_indicators.toml`` without an
+    intermediate CSV, use
+    :func:`d_health.preprocessing.country_indicators.get_country_indicators`.
+
+    Parameters
+    ----------
+    output_path : Path | str
+        Full path of the filtered CSV to write. Parent directories are
+        created if they don't exist. If you want to keep per-day snapshots,
+        template the date into the path yourself
+        (e.g. ``Path(f"data/wdi_{date.today():%Y-%m-%d}.csv")``).
+    cfg : WDIConfig
+        Indicator codes to fetch and CSV separator.
+
+    Returns
+    -------
+    Path
+        Path to the written CSV (same as ``output_path``).
+    """
+    out_path = Path(output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    df = fetch_wdi(cfg)
     df.to_csv(out_path, sep=cfg.csv_sep, index=False)
     logger.info(
         "Wrote %s (%d rows, %.2f MB)",
