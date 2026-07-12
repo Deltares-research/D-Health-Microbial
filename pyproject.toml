@@ -6,28 +6,39 @@ build-backend = "setuptools.build_meta"
 name = "d_health"
 description = "Floods and Health Tool: E. coli emissions, exposure, and risk modelling."
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+# Only 3.12 is exercised (pixi pins it, CI runs it). Widen once CI actually
+# tests another version, rather than advertising support nobody has verified.
+requires-python = ">=3.12,<3.13"
+authors = [{ name = "Panos Athanasiou" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Hydrology",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+# Runtime imports only. The native geospatial stack (GDAL and friends) is
+# supplied by conda-forge via [tool.pixi.dependencies] — see the note there on
+# why `gdal` must not be listed here.
 dependencies = [
     "numpy",
     "rasterio",
     "xarray",
     "rioxarray",
     "netcdf4",
-    "pyyaml",
-    "dask",
+    "pandas",
     "requests",
-    "gdal",
-    "openturns",
     "matplotlib",
     "utm",
-    "salib",
-    "seaborn",
     "wbgapi",
-    "pyproj",
     "pydantic>=2.6",
     "tomli_w",
 ]
 dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/Deltares-research/D-Health-Microbial"
+Issues = "https://github.com/Deltares-research/D-Health-Microbial/issues"
 
 [project.optional-dependencies]
 notebook = [
@@ -52,18 +63,29 @@ attr = "d_health.__version__"
 [tool.setuptools.packages.find]
 include = ["d_health", "d_health.*"]
 
+# PEP 561: without this marker the package is fully annotated and every type
+# checker downstream ignores all of it.
+[tool.setuptools.package-data]
+d_health = ["py.typed"]
+
 ### pixi ###
 [tool.pixi.workspace]
 name = "d_health"
 channels = ["conda-forge"]
 platforms = ["win-64"]
 
+# The native stack comes from conda-forge. `gdal` in particular is here and NOT
+# in [project.dependencies]: it is not reliably installable from PyPI (it needs a
+# matching system GDAL and a compiler), so listing it as a PyPI dependency makes
+# `pip install d_health` fail at resolve time for anyone not using pixi. Nothing
+# in the package imports `osgeo` directly — rasterio bundles what we need — so it
+# is a environment-level dependency, not a project one.
 [tool.pixi.dependencies]
 python = "3.12.*"
 numpy = "*"
 gdal = "*"
 rasterio = "*"
-openturns = "*"
+pandas = "*"
 tomli-w = ">=1.2.0,<2"
 xarray = ">=2026.4.0,<2027"
 rioxarray = ">=0.22.0,<0.23"
