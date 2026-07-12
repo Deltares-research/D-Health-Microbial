@@ -96,7 +96,7 @@ class ExposureConfig(FrozenModel):
         return CountryIndicators.model_validate(data)
 
     @model_validator(mode="after")
-    def _validate_country_indicators_file(self) -> "ExposureConfig":
+    def _validate_country_indicators_file(self) -> ExposureConfig:
         # Fail fast: parse + validate the country indicators TOML now, rather
         # than deep inside the pipeline. Paths have already been resolved to
         # absolute by load_run_config before this validator runs.
@@ -212,7 +212,7 @@ class RunConfig(FrozenModel):
     output: OutputConfig = Field(description="Where the pipeline writes results.")
 
     @model_validator(mode="after")
-    def _check_sanitation_name_coverage(self) -> "RunConfig":
+    def _check_sanitation_name_coverage(self) -> RunConfig:
         country = self.exposure.load_country_indicators()
         country_names = {s.name for s in country.sanitation}
         reduction_names = {

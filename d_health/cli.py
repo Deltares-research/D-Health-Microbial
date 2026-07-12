@@ -21,7 +21,21 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    run = subparsers.add_parser("run", help="Run the model from a TOML config.")
+    # `main` reads args.verbose regardless of which subcommand ran, so every
+    # subparser has to define it. Declaring it once here and inheriting keeps
+    # that true by construction — when --verbose lived only on `run`, the
+    # `setup` subcommand raised AttributeError on every single invocation.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Raise the d_health logger to DEBUG.",
+    )
+
+    run = subparsers.add_parser(
+        "run", help="Run the model from a TOML config.", parents=[common]
+    )
     run.add_argument(
         "-c",
         "--config",
@@ -41,16 +55,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip writing PNG plots (overrides output.plots).",
     )
-    run.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Raise the d_health logger to DEBUG.",
-    )
 
     setup = subparsers.add_parser(
         "setup",
         help="Prepare exposure inputs and write settings.toml from an AOI bbox.",
+        parents=[common],
     )
     setup.add_argument(
         "--bbox",

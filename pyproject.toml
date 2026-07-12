@@ -68,6 +68,55 @@ include = ["d_health", "d_health.*"]
 [tool.setuptools.package-data]
 d_health = ["py.typed"]
 
+### tooling ###
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=d_health --cov-report=term-missing"
+
+[tool.coverage.report]
+# Set below the measured baseline (69%) so it cannot fail on day one, then
+# ratchet up as the preprocessing and plotting gaps close. A floor that starts
+# below reality is a floor people keep.
+fail_under = 65
+show_missing = true
+
+[tool.ruff]
+target-version = "py312"
+# Notebooks are example prose-with-code, not library code, and are linted to a
+# different standard (long lines, top-level imports mid-file). The pre-commit
+# ruff hook already excluded them; keep the `pixi run ruff` task consistent with
+# it rather than having the two disagree about what "clean" means.
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+# Ruff with no config runs only E4/E7/E9/F — syntax errors and undefined names,
+# i.e. almost nothing. These are the rule sets that actually pay here:
+#   I    import sorting (already drifting in tests/conftest.py)
+#   B    bugbear — catches the mutable-default-argument shape used for `cfg=`
+#   NPY  numpy-specific lints, directly relevant to the numeric core
+#   UP   pyupgrade
+select = ["E", "F", "I", "B", "NPY", "UP", "W"]
+# Line length is black's job, and it cannot split a long string or comment —
+# enforcing E501 on top of a formatter just creates noise the formatter can't fix.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# The preprocessing entry points take `cfg: WorldPopConfig = WorldPopConfig()`.
+# B008 flags that shape because a mutable default would be shared across calls —
+# but these configs are frozen pydantic models, so the instance cannot be
+# mutated and sharing it is safe and intentional.
+"d_health/preprocessing/*.py" = ["B008"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+# The package is thoroughly annotated, so this finds real things immediately.
+# Start permissive on third-party stubs (rasterio/rioxarray/wbgapi ship none)
+# and tighten over time rather than boiling the ocean now.
+ignore_missing_imports = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
 ### pixi ###
 [tool.pixi.workspace]
 name = "d_health"
@@ -96,6 +145,7 @@ tests = { cmd = "pytest", default-environment = "test" }
 ruff = { cmd = "ruff check .", default-environment = "lint" }
 black = { cmd = "black --check .", default-environment = "lint" }
 typos = { cmd = "typos .", default-environment = "lint" }
+mypy = { cmd = "mypy d_health", default-environment = "lint" }
 precommit = { cmd = "pre-commit run --all-files --show-diff-on-failure", default-environment = "lint" }
 
 [tool.pixi.feature.editable.pypi-dependencies]
@@ -109,6 +159,7 @@ ruff = "*"
 black = "*"
 typos = "*"
 pre-commit = "*"
+mypy = "*"
 
 [tool.pixi.environments]
 default = { features = ["notebook", "editable", "lint"] }

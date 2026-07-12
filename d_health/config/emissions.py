@@ -139,7 +139,7 @@ class GDPWeight(FrozenModel):
     )
 
 
-def _default_sanitation_reductions() -> list["SanitationReduction"]:
+def _default_sanitation_reductions() -> list[SanitationReduction]:
     """The default per-tier retained-fraction multipliers.
 
     One entry per sanitation tier (Safe/Advanced/Basic/None), matching the tier
@@ -218,7 +218,7 @@ class EmissionsConfig(FrozenModel):
     )
 
     @model_validator(mode="after")
-    def _check_unique_names(self) -> "EmissionsConfig":
+    def _check_unique_names(self) -> EmissionsConfig:
         names = [r.name for r in self.sanitation_reductions]
         if len(set(names)) != len(names):
             raise ValueError(f"sanitation_reductions names must be unique; got {names}")
@@ -262,7 +262,7 @@ class CountryIndicators(FrozenModel):
     )
 
     @model_validator(mode="after")
-    def _check_sums(self) -> "CountryIndicators":
+    def _check_sums(self) -> CountryIndicators:
         urban_sum = sum(s.urban for s in self.sanitation)
         rural_sum = sum(s.rural for s in self.sanitation)
         if abs(urban_sum - 100.0) > _SUM_TOLERANCE:

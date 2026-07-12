@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import numpy as np
 import rioxarray  # noqa: F401  (registers the .rio accessor)

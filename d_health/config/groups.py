@@ -96,7 +96,7 @@ class PopulationGroup(FrozenModel):
     )
 
     @model_validator(mode="after")
-    def _check_depth_thresholds(self) -> "PopulationGroup":
+    def _check_depth_thresholds(self) -> PopulationGroup:
         depths = [t.min_depth for t in self.depth_thresholds]
         if depths != sorted(depths):
             raise ValueError(

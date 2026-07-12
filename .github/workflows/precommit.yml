@@ -6,6 +6,13 @@ on:
     branches:
       - main
 
+concurrency:
+  group: precommit-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   pre-commit:
     runs-on: windows-latest
@@ -19,3 +26,12 @@ jobs:
 
       - name: Run pre-commit hooks
         run: pixi run precommit
+
+      # Type checking is not part of pre-commit (it needs the full package
+      # environment, not an isolated hook venv), so it runs here. Non-blocking
+      # for now: the codebase is thoroughly annotated but has never been checked,
+      # so this reports the backlog without gating the PR. Drop the
+      # continue-on-error once the findings are worked through.
+      - name: Type check
+        run: pixi run mypy
+        continue-on-error: true

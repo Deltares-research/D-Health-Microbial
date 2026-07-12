@@ -75,11 +75,11 @@ def _as_bbox_sequence(value: Any) -> tuple[float, float, float, float] | None:
 
 
 def _merge_bounds(
-    all_bounds: list[tuple[float, float, float, float]]
+    all_bounds: list[tuple[float, float, float, float]],
 ) -> tuple[float, float, float, float]:
     if not all_bounds:
         raise ValueError("AOI feature collection is empty.")
-    xs1, ys1, xs2, ys2 = zip(*all_bounds)
+    xs1, ys1, xs2, ys2 = zip(*all_bounds, strict=True)
     return min(xs1), min(ys1), max(xs2), max(ys2)
 
 
@@ -129,13 +129,13 @@ def normalize_aoi_bounds(aoi: Any) -> tuple[float, float, float, float]:
         return from_sequence
 
     if hasattr(aoi, "total_bounds"):
-        bounds = getattr(aoi, "total_bounds")
+        bounds = aoi.total_bounds
         from_total_bounds = _as_bbox_sequence(bounds)
         if from_total_bounds is not None:
             return from_total_bounds
 
     if hasattr(aoi, "bounds"):
-        bounds = getattr(aoi, "bounds")
+        bounds = aoi.bounds
         from_bounds = _as_bbox_sequence(bounds)
         if from_bounds is not None:
             return from_bounds
