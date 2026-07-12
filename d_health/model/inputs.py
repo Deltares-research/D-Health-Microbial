@@ -72,7 +72,21 @@ def load_inputs(exposure: ExposureConfig, event: EventConfig) -> ModelInputs:
 
     # Reproject urban_rural onto that common grid with 'nearest' so the
     # categorical codes (1=urban, 2=rural, 0=nodata) survive resampling.
-    urban_rural_da, _ = align_rasters(urban_rural_da, flood_da, resampling="nearest")
+    #
+    # align_rasters clips *both* returned arrays to the input's footprint, so
+    # this call can shrink the grid again — to the flood ∩ urban_rural overlap.
+    # Keep that clipped flood (rather than discarding it) and pull population
+    # back onto the same sub-grid, otherwise the three arrays silently end up on
+    # different grids whenever urban_rural covers less ground than the flood map.
+    urban_rural_da, flood_da = align_rasters(
+        urban_rural_da, flood_da, resampling="nearest"
+    )
+    # flood_da already sits on population's grid, so its x/y are a subset of
+    # population's: select (not resample) — population holds *counts*, and
+    # resampling an extensive quantity would invent or destroy people.
+    population_da = population_da.sel(
+        x=flood_da["x"], y=flood_da["y"], method="nearest"
+    )
 
     flood = flood_da.values.astype(np.float32)
     flood_meta = da_to_meta(flood_da)
@@ -82,6 +96,25 @@ def load_inputs(exposure: ExposureConfig, event: EventConfig) -> ModelInputs:
     urban_rural = np.where(
         np.isnan(urban_rural_da.values), 0, urban_rural_da.values
     ).astype(np.int8)
+
+    # The positive-depth convention is what the whole model assumes; a flood map
+    # built by differencing a water surface against a DEM carries negatives on
+    # dry high ground. Left alone they yield a negative concentration, a negative
+    # dose, and a *negative risk*, which np.nansum then quietly subtracts from
+    # the totals. Treat them as dry, and say so.
+    negative = flood < 0.0  # False for NaN
+    n_negative = int(negative.sum())
+    if n_negative:
+        logger.warning(
+            "flood map has %d negative-depth cell(s) (min %.3f m); clipping to 0 "
+            "(treated as dry). Flood depth must be positive — check the raster's "
+            "sign convention.",
+            n_negative,
+            float(flood[negative].min()),
+        )
+        flood = np.where(negative, 0.0, flood).astype(np.float32)
+
+    _check_common_grid(flood, population_da, urban_rural, exposure, event)
 
     logger.info(
         "Loaded inputs: flood %s, population %s (groups: %s), urban_rural %s",
@@ -95,4 +128,36 @@ def load_inputs(exposure: ExposureConfig, event: EventConfig) -> ModelInputs:
         flood_meta=flood_meta,
         population=population_da,
         urban_rural=urban_rural,
+    )
+
+
+def _check_common_grid(
+    flood: np.ndarray,
+    population: xr.DataArray,
+    urban_rural: np.ndarray,
+    exposure: ExposureConfig,
+    event: EventConfig,
+) -> None:
+    """Assert the invariant ``ModelInputs`` documents: all three share one grid.
+
+    The numeric core indexes these arrays against each other positionally
+    (``sani[urban_rural == 1]``, ``risk * population_band``), so a shape
+    mismatch surfaces several frames away as an opaque ``IndexError`` about
+    boolean axes. Fail here instead, naming the raster that doesn't fit.
+    """
+    expected = flood.shape
+    mismatched = {
+        str(event.flood_depth_map): flood.shape,
+        str(exposure.population): population.shape[1:],
+        str(exposure.urban_rural): urban_rural.shape,
+    }
+    if len(set(mismatched.values())) == 1:
+        return
+    detail = "\n".join(f"  {shape}  {path}" for path, shape in mismatched.items())
+    raise ValueError(
+        "Input rasters do not share a common grid after alignment "
+        f"(expected {expected} for all three):\n{detail}\n"
+        "This usually means one raster's footprint does not cover the others — "
+        "check that the urban/rural and population rasters span the flood map's "
+        "extent."
     )

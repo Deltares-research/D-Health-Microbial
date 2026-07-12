@@ -45,6 +45,10 @@ class ExposureConfig(FrozenModel):
     against the config.toml's directory at load time by ``load_run_config`` (so a
     config.toml is self-contained and portable regardless of the working directory
     it's invoked from). Absolute paths are used as-is.
+
+    **The population raster defines the analysis grid.** Its CRS and resolution
+    are what the flood and urban/rural rasters are resampled onto (clipped to the
+    intersection of all three footprints).
     """
 
     population: Path = Field(
@@ -54,7 +58,12 @@ class ExposureConfig(FrozenModel):
             "``adults`` (10+), ``total`` — see "
             "``PopulationGroup.name`` and "
             "``EmissionsConfig.total_population_group``. A multi-band GeoTIFF "
-            "is also accepted (bands mapped to groups positionally)."
+            "is also accepted (bands mapped to groups positionally). "
+            "**This raster's CRS and resolution define the analysis grid**; the "
+            "flood and urban/rural rasters are resampled onto it. A flood map "
+            "finer than this grid is area-averaged, which attenuates peak "
+            "depths — a deep narrow channel can average below a group's "
+            "swimming threshold."
         ),
     )
     urban_rural: Path = Field(
@@ -100,14 +109,21 @@ class EventConfig(FrozenModel):
 
     A single-layer raster path. Relative paths in a config.toml are resolved
     against the config.toml's directory by ``load_run_config``.
+
+    Note that the flood map does **not** define the analysis grid — the
+    population raster does (see ``ExposureConfig.population``). The flood map is
+    resampled *onto* population's grid, not the other way round.
     """
 
     flood_depth_map: Path = Field(
         description=(
             "netCDF (or GeoTIFF) of flood depth in metres, *positive for "
-            "flooded cells* (``0`` or nodata = dry). Single layer; "
-            "CRS/resolution determine the grid every other raster is sampled "
-            "to."
+            "flooded cells* (``0`` or nodata = dry; negative depths are "
+            "clipped to 0 with a warning). Single layer. This raster is "
+            "area-averaged onto the population raster's grid — it does not "
+            "define the grid itself, so supplying it at a finer resolution "
+            "than the population raster does not make the run finer. See "
+            "``ExposureConfig.population``."
         ),
     )
 

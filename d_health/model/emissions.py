@@ -8,6 +8,10 @@ from d_health.config.emissions import CountryIndicators, EmissionsConfig
 
 logger = logging.getLogger(__name__)
 
+# Above this share of unclassified urban/rural cells, the sanitation fallback is
+# driving enough of the map that the user should be told loudly.
+_NODATA_WARN_FRACTION = 0.20
+
 
 def compute_emissions(
     popdens: np.ndarray,
@@ -23,11 +27,17 @@ def compute_emissions(
         emissions = popdens × per_capita_rate × per_cell_sanitation_factor × weight_factor
 
     ``per_cell_sanitation_factor`` is ``urban_eff`` in urban cells,
-    ``rural_eff`` in rural cells, and ``1.0`` elsewhere. ``urban_eff`` /
-    ``rural_eff`` capture how much of the baseline emission survives the
-    country's sanitation infrastructure: they are the dot product of the
-    country-level coverage of each sanitation tier (as a fraction) with that
-    tier's retained-fraction multiplier:
+    ``rural_eff`` in rural cells, and — in cells the urban/rural raster leaves
+    unclassified — whatever ``cfg.nodata_sanitation`` selects (default
+    ``"none"``, i.e. factor ``1.0`` = no sanitation infrastructure; see
+    :data:`d_health.config.emissions.NodataSanitation`). The unclassified share
+    is logged, and warned about past 20%, because that fallback is a
+    maximum-emission assumption applied to the least-known cells.
+
+    ``urban_eff`` / ``rural_eff`` capture how much of the baseline emission
+    survives the country's sanitation infrastructure: they are the dot product
+    of the country-level coverage of each sanitation tier (as a fraction) with
+    that tier's retained-fraction multiplier:
 
         urban_eff = Σᵢ (country.sanitation[i].urban / 100) × cfg.sanitation_reductions[i].urban_reduction_factor
         rural_eff = analogously
@@ -66,9 +76,34 @@ def compute_emissions(
         rural_eff,
     )
 
-    sani = np.ones_like(popdens, dtype=np.float64)
-    sani[urban_rural == 1] = urban_eff
-    sani[urban_rural == 2] = rural_eff
+    urban_mask = urban_rural == 1
+    rural_mask = urban_rural == 2
+    nodata_mask = ~(urban_mask | rural_mask)
+
+    fallback = {
+        "none": 1.0,
+        "urban": urban_eff,
+        "rural": rural_eff,
+        "nan": np.nan,
+    }[cfg.nodata_sanitation]
+
+    sani = np.full(popdens.shape, fallback, dtype=np.float64)
+    sani[urban_mask] = urban_eff
+    sani[rural_mask] = rural_eff
+
+    n_nodata = int(nodata_mask.sum())
+    if n_nodata:
+        share = n_nodata / nodata_mask.size
+        log = logger.warning if share > _NODATA_WARN_FRACTION else logger.info
+        log(
+            "urban_rural: %d of %d cells (%.1f%%) unclassified — applying "
+            "nodata_sanitation=%r (factor %s)",
+            n_nodata,
+            nodata_mask.size,
+            share * 100.0,
+            cfg.nodata_sanitation,
+            fallback,
+        )
 
     gw = cfg.gdp_weight
     weight = max(gw.floor, gw.intercept - country.gdp_per_capita / gw.divisor)

@@ -21,12 +21,18 @@ def test_conc_positive_depth(small_meta):
     assert np.allclose(conc, expected)
 
 
-def test_conc_dry_cells_gate_out(small_meta):
-    """Dry cells (depth 0 or NaN) produce non-finite concentration, gating them out."""
-    flood = np.array([[0.0, np.nan]], dtype=np.float64)
-    emissions = np.array([[1.0e6, 1.0e6]], dtype=np.float64)
+def test_conc_dry_cells_are_nan_not_inf(small_meta):
+    """Dry cells (depth 0, negative, or NaN) yield NaN — never inf.
+
+    Regression: dividing by a depth of 0 gives +inf, and an inf concentration
+    becomes an inf dose and a *risk of 1.0* — dry land reporting certain
+    infection. The gate must be explicit, not an artifact of which min_depth the
+    population groups happen to use.
+    """
+    flood = np.array([[0.0, np.nan, -1.0]], dtype=np.float64)
+    emissions = np.array([[1.0e6, 1.0e6, 1.0e6]], dtype=np.float64)
 
     conc = calc_pathogen_conc(small_meta, flood, emissions)
 
-    assert not np.isfinite(conc[0, 0])  # depth 0 -> divide-by-zero -> inf
-    assert np.isnan(conc[0, 1])  # depth NaN -> NaN
+    assert np.isnan(conc).all()
+    assert not np.isinf(conc).any()

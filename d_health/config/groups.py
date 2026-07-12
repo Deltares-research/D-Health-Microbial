@@ -103,6 +103,17 @@ class PopulationGroup(FrozenModel):
                 f"group {self.name!r}: depth_thresholds must be sorted ascending "
                 f"by min_depth; got {depths}"
             )
+        # A group cannot be exposed at zero depth: a dry cell holds no
+        # floodwater, so there is nothing to ingest and no concentration is
+        # defined there. Allowing min_depth == 0 would make the lowest band
+        # select dry cells, which is both meaningless and (before the explicit
+        # gate in calc_pathogen_conc) produced a risk of 1.0 on dry land.
+        if depths[0] <= 0.0:
+            raise ValueError(
+                f"group {self.name!r}: the lowest depth_threshold must have "
+                f"min_depth > 0 (a group cannot be exposed on dry land); got "
+                f"{depths[0]}"
+            )
         names = [t.name for t in self.depth_thresholds]
         if len(set(names)) != len(names):
             raise ValueError(
