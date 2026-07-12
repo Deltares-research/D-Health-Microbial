@@ -2,6 +2,22 @@
 
 Floods and Health Tool: E. coli emissions, exposure, and risk modelling.
 
+Given a flood map and an area of interest, `d_health` estimates how many people are
+likely to be infected: population and sanitation data become an E. coli emission
+field, the floodwater dilutes it into a concentration, each population group
+ingests a depth-dependent dose, and a dose-response curve turns that into an
+infection probability and an expected infected count.
+
+```
+population × sanitation × GDP  →  emissions
+                                      ↓  ÷ (cell area × flood depth)
+                              pathogen concentration
+                                      ↓  × depth-banded ingestion
+                                    dose
+                                      ↓  beta-Poisson
+                                    risk  →  infected = risk × population
+```
+
 ## Prerequisites
 
 This project uses [pixi](https://pixi.sh) to manage its environment (conda + PyPI dependencies, pinned via `pixi.lock`).
@@ -21,7 +37,14 @@ From the project root (the directory containing `pyproject.toml`):
 pixi install
 ```
 
-This creates a `.pixi/` environment with Python 3.11–3.12, all dependencies (numpy, rasterio, GDAL, OpenTURNS, dask, matplotlib, SALib, …), and installs the `d_health` package itself in editable mode. Re-run `pixi install` after pulling changes to `pyproject.toml` or `pixi.lock`.
+This creates a `.pixi/` environment with Python 3.12, the geospatial stack
+(numpy, rasterio, GDAL, xarray/rioxarray, netCDF4, pandas, matplotlib), and
+installs `d_health` itself in editable mode. Re-run `pixi install` after pulling
+changes to `pyproject.toml` or `pixi.lock`.
+
+> `pip install d_health` is **not** the supported path: the package depends on
+> GDAL, which is not reliably installable from PyPI. Use pixi (or bring your own
+> conda environment with GDAL already present).
 
 ## Using the environment
 
@@ -37,51 +60,10 @@ Or run a single command without activating:
 pixi run python -c "import d_health; print(d_health.__version__)"
 ```
 
-## Running notebooks
+## Quick start
 
-Launch Jupyter Lab from the project root:
-
-```bash
-pixi run jupyter lab
-```
-
-Or classic Notebook:
-
-```bash
-pixi run jupyter notebook
-```
-
-The environment includes `ipykernel`, so notebooks will pick up the project's Python automatically when launched this way. If you prefer to register the env as a named kernel for use from another Jupyter install:
-
-```bash
-pixi run python -m ipykernel install --user --name d_health --display-name "Python (d_health)"
-```
-
-## Project layout
-
-```
-.
-├── d_health/            # Python package
-│   ├── cli.py           # `d-health run -c config.toml` entry point
-│   ├── config/          # pydantic run configuration (exposure/event/settings/output)
-│   ├── preprocessing/   # build inputs (WorldPop population, GHS-SMOD, World Bank indicators)
-│   ├── model/           # pipeline: emissions → concentration → dose → risk → infected
-│   ├── postprocessing/  # flood classes, coverage, risk classes, plots
-│   ├── io.py            # raster read/write helpers
-│   └── geo.py           # reprojection / grid alignment
-├── examples/
-│   ├── detailed/        # full step-by-step notebooks (preprocessing + run)
-│   └── quickbuild/      # fast AOI setup + multi-scenario run notebooks
-├── tests/               # pytest suite
-├── pyproject.toml       # project metadata + pixi config
-├── pixi.lock            # locked dependency versions (commit this)
-└── README.md
-```
-
-## AOI-first setup workflow
-
-You can now generate exposure inputs from a single AOI and write a reusable
-`settings.toml` (without flood map) using either Python or CLI.
+Generate exposure inputs from a single AOI, then run one or more flood scenarios
+against them.
 
 ### Python API
 
@@ -91,49 +73,165 @@ from d_health import model_setup, write_run_config_from_setup, run_model_from_to
 # Paramaribo bbox: xmin, ymin, xmax, ymax (EPSG:4326)
 aoi = (-55.27, 5.78, -55.10, 5.93)
 
+# Downloads WorldPop, GHS-SMOD and World Bank indicators; writes settings.toml.
 setup = model_setup(aoi=aoi, root_dir="examples/quickbuild/data/setup_paramaribo")
 print(setup.country_code, setup.settings_toml)
 
-# Later, inject a flood map and run
+# Later, inject a flood map and run. Reuse one setup for many scenarios.
 run_toml = write_run_config_from_setup(
-	settings_toml=setup.settings_toml,
-	flood_depth_map="examples/quickbuild/data/flood_extremes/flood_wl3m_paramaribo.tif",
-	run_config_path="examples/quickbuild/outputs/run/scenario_wl3m/config.toml",
-	output_out_dir="examples/quickbuild/outputs/run/scenario_wl3m",
+    settings_toml=setup.settings_toml,
+    flood_depth_map="examples/quickbuild/data/flood_extremes/flood_wl03m_paramaribo.tif",
+    run_config_path="examples/quickbuild/outputs/run/scenario_wl03m/config.toml",
+    output_out_dir="examples/quickbuild/outputs/run/scenario_wl03m",
 )
 outputs = run_model_from_toml(run_toml)
-print(outputs.totals)
+print(outputs.totals)   # {'infected_adults': ..., 'infected_children': ...}
 ```
 
 ### CLI
 
 ```bash
+# Prepare exposure inputs for an AOI (--bbox takes four space-separated numbers)
 d-health setup --bbox -55.27 5.78 -55.10 5.93 --root examples/quickbuild/data/setup_paramaribo
+
+# Skip reverse geocoding by naming the country yourself
+d-health setup --bbox -55.27 5.78 -55.10 5.93 --root data/setup --country-iso SUR --year 2020
+
+# Run a scenario
+d-health run --config config.toml
+d-health run -c config.toml --out other/dir --no-plots
 ```
 
-The setup command writes:
+`setup` writes `data/*.nc` + `data/*_indicators.toml` (the exposure inputs) and a
+`settings.toml` with no `[event]` section — the flood map is injected later, so one
+setup serves many scenarios.
 
-- `data/*.nc` and `data/*_indicators.toml` exposure inputs
-- `settings.toml` (exposure/settings/output/metadata; no event section)
+## Things worth knowing before you trust a number
 
-## Examples tracks
+These are the model's load-bearing conventions. Each has bitten someone.
 
-- Detailed: `examples/detailed/README.md`
-- Quickbuild: `examples/quickbuild/README.md`
+- **The population raster defines the analysis grid** — not the flood map. The flood
+  and urban/rural rasters are resampled *onto* population's CRS and resolution
+  (clipped to the intersection of all three footprints). Supplying a 10 m flood map
+  against a 100 m population grid does **not** give you a 10 m run: the depths are
+  area-averaged, which attenuates peaks, so a deep narrow channel can average
+  *below* a group's swimming threshold.
 
-## Adding dependencies
+- **Flood depth is positive**: `> 0` flooded, `0`/NaN dry. Negative depths (common
+  in maps built by differencing a water surface against a DEM) are clipped to 0
+  with a warning.
+
+- **Unexposed cells are `NaN`, not `0`**, in `pathogen_conc`, `dose`, `risk` and
+  `infected`. Aggregate with `np.nansum` / `np.nanmean`, or dry land will poison
+  the result.
+
+- **`reduction_factor` is a *retained* fraction, not a removed one.** `1.0` = no
+  sanitation (full baseline emissions retained); `0.10` = strong sanitation (only
+  10% retained). Smaller means *more* sanitation.
+
+- **Unclassified urban/rural cells default to "no sanitation"** (`nodata_sanitation
+  = "none"`, factor `1.0`) — the maximum-emission assumption, applied to the cells
+  you know least about. GHS-SMOD leaves both nodata *and water* unclassified. The
+  unclassified share is logged, and warned about past 20%. Set
+  `settings.emissions.nodata_sanitation` to `"urban"`, `"rural"` or `"nan"` to
+  change it.
+
+- **Per-group outputs are stacked along a `group` dimension**, not one variable per
+  group: `ds["risk"].sel(group="adults")`, not `ds["risk_adults"]`.
+
+## Outputs
+
+Written to `output.out_dir`. Everything is netCDF; no GeoTIFFs, no JSON.
+
+| File | Content |
+|---|---|
+| `emissions.nc` | E. coli load per cell (CFU per flood event) |
+| `pathogen_conc.nc` | Concentration (CFU per 100 mL; NaN where dry) |
+| `flood_classes.nc` | `0` dry, `1` wet but below every threshold, `2..n` activity bands |
+| `dose.nc`, `risk.nc`, `infected.nc` | Per group, stacked along `group` |
+| `*.png` | Maps and the risk histogram (only when `output.plots = true`) |
+
+Summary statistics (`totals`, `coverage`, `risk_class_counts`) are returned on the
+`ModelOutputs` object — they are **not** written to disk.
+
+## Project layout
+
+```
+.
+├── d_health/            # Python package
+│   ├── cli.py           # `d-health run|setup` entry point
+│   ├── config/          # pydantic configuration (exposure/event/settings/output)
+│   ├── preprocessing/   # build inputs (WorldPop population, GHS-SMOD, World Bank)
+│   ├── model/           # pipeline: emissions → concentration → dose → risk → infected
+│   ├── postprocessing/  # flood classes, coverage, risk classes, plots
+│   ├── io.py            # raster read/write helpers
+│   └── geo.py           # reprojection / grid alignment
+├── docs/                # user guide, workflow, API reference, module overview
+├── examples/
+│   ├── detailed/        # full step-by-step notebooks (preprocessing + run)
+│   └── quickbuild/      # fast AOI setup + multi-scenario run notebooks
+├── tests/               # pytest suite
+├── pyproject.toml       # project metadata + pixi config + tooling
+├── pixi.lock            # locked dependency versions (commit this)
+└── README.md
+```
+
+## Documentation
+
+- [User guide](docs/USER_GUIDE.md) — installation and common tasks
+- [Workflow](docs/WORKFLOW.md) — inputs → processing → outputs, end to end
+- [API reference](docs/API_REFERENCE.md) — every public function and config model
+- [Module overview](docs/MODULE_OVERVIEW.md) — how the package fits together
+
+Example notebooks: [`examples/detailed/`](examples/detailed/README.md) (step by
+step) and [`examples/quickbuild/`](examples/quickbuild/README.md) (AOI setup +
+multi-scenario runs). Notebook outputs are stripped on commit, so run them to see
+the maps.
+
+## Development
+
+```bash
+pixi run tests       # pytest + coverage (fails below 65%)
+pixi run ruff        # lint
+pixi run black       # format check
+pixi run mypy        # type check (advisory; has a known backlog)
+pixi run precommit   # every hook, on every file
+```
+
+Install the git hooks once with `pixi run -e lint pre-commit install`. They strip
+notebook outputs, block files over 1 MB, and run ruff/black/typos.
+
+### Running notebooks
+
+```bash
+pixi run jupyter lab
+```
+
+The environment includes `ipykernel`, so notebooks pick up the project's Python
+automatically. To register it as a named kernel for another Jupyter install:
+
+```bash
+pixi run python -m ipykernel install --user --name d_health --display-name "Python (d_health)"
+```
+
+### Adding dependencies
 
 - **Conda package:** `pixi add <name>`
 - **PyPI-only package:** `pixi add --pypi <name>`
 
-Both update `pyproject.toml` and `pixi.lock`.
+Both update `pyproject.toml` and `pixi.lock`. If a package is imported by the
+library itself, add it to `[project.dependencies]` too — except for native
+geospatial packages like GDAL, which belong only in `[tool.pixi.dependencies]`
+(they are not pip-installable, and listing them breaks `pip install`).
 
 ## Platforms
 
-`pyproject.toml` currently declares `platforms = ["win-64"]`. To support other systems, add them under `[tool.pixi.workspace]`, e.g.:
+`pyproject.toml` currently declares `platforms = ["win-64"]`, and CI runs on
+Windows only. To support other systems, add them under `[tool.pixi.workspace]`:
 
 ```toml
 platforms = ["win-64", "linux-64", "osx-arm64", "osx-64"]
 ```
 
-Then re-run `pixi install` to extend the lockfile.
+Then re-run `pixi install` to extend the lockfile. Note this re-solves every
+environment, so expect churn in `pixi.lock`.
