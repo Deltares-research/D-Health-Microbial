@@ -4,4 +4,8 @@
 extend-ignore-words-re = [
     "(?i)\\bSUR\\b",
     "(?i)\\bsur_",
+    # WorldPop hub alias for the Global_2000_2020_Constrained series
+    # (`ascic_2020`), documented in config/preprocessing.py. Not "ascii".
+    "(?i)\\bascic\\b",
+    "(?i)\\bascic_",
 ]

@@ -27,12 +27,22 @@ def calc_pathogen_conc(
         EcoliConc = emissions / (cell_area × flood × 10000)
 
     ``flood`` is flood depth in metres under the positive-depth convention
-    (``> 0`` flooded, ``0`` or ``NaN`` dry). The division by ``flood`` is what
-    implicitly gates the pipeline to flooded cells: dry cells produce ``inf``
-    (depth ``0``) or ``NaN`` (depth ``NaN``) concentration, which propagates as
-    NaN through the downstream dose / risk calculations.
+    (``> 0`` flooded, ``0`` or ``NaN`` dry). Dry cells hold no floodwater, so a
+    concentration is not defined there: they are returned as ``NaN``, the
+    package-wide nodata convention, which then propagates through the
+    downstream dose / risk / infected steps.
+
+    The dry-cell gate is applied explicitly rather than left to the arithmetic.
+    Dividing by a depth of ``0`` yields ``+inf``, and an ``inf`` concentration
+    turns into an ``inf`` dose and a *risk of 1.0* — a cell of dry land
+    reporting certain infection. That only stayed harmless because every
+    bundled population group starts at ``min_depth = 0.1``, i.e. the ``inf``
+    was masked by a default rather than by the code. Gating here makes the
+    convention true by construction, independent of how groups are configured.
     """
     cell_area = get_cell_area(flood_meta)
     with np.errstate(divide="ignore", invalid="ignore"):
         conc = emissions / (cell_area * flood * factor)
-    return conc
+
+    # `flood > 0` is False for NaN as well as for <= 0, so this catches both.
+    return np.where(flood > 0.0, conc, np.nan)

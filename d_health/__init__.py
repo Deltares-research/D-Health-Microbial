@@ -7,9 +7,9 @@ from d_health.config import (
 )
 from d_health.geo import align_rasters
 from d_health.model import (
+    ModelOutputs,
     ModelSetupOverrides,
     ModelSetupResult,
-    ModelOutputs,
     derive_country_from_aoi,
     model_setup,
     run_model,

@@ -11,7 +11,6 @@ from rasterio.coords import BoundingBox
 from rasterio.crs import CRS
 from rasterio.transform import from_origin
 
-from d_health.io import from_numpy
 from d_health.config.emissions import (
     CountryIndicators,
     EmissionsConfig,
@@ -21,6 +20,7 @@ from d_health.config.emissions import (
 )
 from d_health.config.groups import DepthThreshold, PopulationGroup
 from d_health.config.pathogen import PathogenConfig, PathogenParameters
+from d_health.io import from_numpy
 
 
 def _write_country_toml(path: Path, country: CountryIndicators) -> Path:

@@ -1,10 +1,32 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field, model_validator
 
 from d_health.config.base import FrozenModel
 
 _SUM_TOLERANCE = 0.5  # percent; allow small rounding error in WB-derived inputs
+
+NodataSanitation = Literal["none", "urban", "rural", "nan"]
+"""What sanitation factor to apply to cells the urban/rural raster doesn't classify.
+
+GHS-SMOD leaves cells unclassified (code ``0``) both where it has no data and
+where it maps *water* — see ``preprocessing.smod._reclassify``. Those cells still
+carry population in the WorldPop raster, so the emissions step has to decide what
+sanitation infrastructure to assume for them:
+
+``"none"``
+    Factor ``1.0`` — the same value the ``"None"`` sanitation tier gets, i.e.
+    *no sanitation infrastructure at all*. This is the maximum-emission
+    assumption, applied to the cells we know least about. **The default**, because
+    it is what the model has always done; it is a conservative choice, not a
+    neutral one.
+``"urban"`` / ``"rural"``
+    Reuse the country's urban (resp. rural) effective sanitation factor.
+``"nan"``
+    Exclude the cell from the emissions field entirely.
+"""
 
 
 class SanitationLevel(FrozenModel):
@@ -117,7 +139,7 @@ class GDPWeight(FrozenModel):
     )
 
 
-def _default_sanitation_reductions() -> list["SanitationReduction"]:
+def _default_sanitation_reductions() -> list[SanitationReduction]:
     """The default per-tier retained-fraction multipliers.
 
     One entry per sanitation tier (Safe/Advanced/Basic/None), matching the tier
@@ -184,9 +206,19 @@ class EmissionsConfig(FrozenModel):
             "indicators. Defaults to the Safe/Advanced/Basic/None tiers."
         ),
     )
+    nodata_sanitation: NodataSanitation = Field(
+        default="none",
+        description=(
+            "Sanitation factor applied where the urban/rural raster is "
+            "unclassified (GHS-SMOD code 0: nodata *and* water). Defaults to "
+            '``"none"`` (factor 1.0 = no sanitation infrastructure), which '
+            "reproduces the model's historical behaviour — a maximum-emission "
+            "assumption on the least-known cells. See ``NodataSanitation``."
+        ),
+    )
 
     @model_validator(mode="after")
-    def _check_unique_names(self) -> "EmissionsConfig":
+    def _check_unique_names(self) -> EmissionsConfig:
         names = [r.name for r in self.sanitation_reductions]
         if len(set(names)) != len(names):
             raise ValueError(f"sanitation_reductions names must be unique; got {names}")
@@ -230,7 +262,7 @@ class CountryIndicators(FrozenModel):
     )
 
     @model_validator(mode="after")
-    def _check_sums(self) -> "CountryIndicators":
+    def _check_sums(self) -> CountryIndicators:
         urban_sum = sum(s.urban for s in self.sanitation)
         rural_sum = sum(s.rural for s in self.sanitation)
         if abs(urban_sum - 100.0) > _SUM_TOLERANCE:

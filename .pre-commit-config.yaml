@@ -1,17 +1,42 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # This repo is geospatial: a stray .tif or .nc is one `git add .` away from
+      # being permanent. The example notebooks already carried 2.7 MB of embedded
+      # output images before nbstripout was added below.
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      # The project is configured in TOML *and* consumes TOML as data
+      # (country_indicators). A malformed one should fail at commit, not at run.
+      - id: check-toml
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+    rev: v0.15.21
     hooks:
       - id: ruff
         args: ["--fix"]
         exclude: ".*\\.ipynb$"
 
   - repo: https://github.com/psf/black
-    rev: 24.10.0
+    rev: 26.5.1
     hooks:
       - id: black
 
+  # Pinned to a concrete tag, not the floating `v1` that `pre-commit autoupdate`
+  # resolves to — a moving rev makes CI non-reproducible.
   - repo: https://github.com/crate-ci/typos
-    rev: v1.24.6
+    rev: v1.48.0
     hooks:
       - id: typos
+
+  # Notebook outputs are base64 image blobs: committing them makes every re-run
+  # an unreviewable multi-hundred-KB diff and grows the history permanently.
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.9.1
+    hooks:
+      - id: nbstripout

@@ -6,8 +6,21 @@ on:
     branches:
       - main
 
+# A superseded push otherwise keeps burning a Windows runner, which bills at 2x
+# the Linux rate.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   test:
+    # Windows only, for now: [tool.pixi.workspace] declares platforms = ["win-64"],
+    # so a Linux runner has no lockfile to install from. Adding linux-64 (and a
+    # matrix here) is the biggest remaining portability win, but it forces a full
+    # lockfile re-solve, so it is deliberately not bundled into this PR.
     runs-on: windows-latest
 
     steps:
@@ -17,5 +30,8 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.8.1
 
+      # `tests` now runs pytest with --cov and a fail_under floor (see
+      # [tool.coverage.report]), so coverage is enforced rather than merely
+      # installed.
       - name: Run test suite
         run: pixi run tests

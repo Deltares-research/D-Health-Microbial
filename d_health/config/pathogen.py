@@ -43,7 +43,7 @@ class PathogenParameters(FrozenModel):
     )
 
 
-def _default_pathogens() -> dict[str, "PathogenParameters"]:
+def _default_pathogens() -> dict[str, PathogenParameters]:
     """The bundled E. coli catalogue (Teunis et al. 2008), as a default object."""
     return {
         "E.coli": PathogenParameters(
@@ -85,7 +85,7 @@ class PathogenConfig(FrozenModel):
     )
 
     @model_validator(mode="after")
-    def _check_selected_exists(self) -> "PathogenConfig":
+    def _check_selected_exists(self) -> PathogenConfig:
         if self.selected not in self.pathogens:
             raise ValueError(
                 f"selected pathogen {self.selected!r} not in pathogens; "

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import tomllib
+
 import pandas as pd
 import pytest
-import tomllib
 
 from d_health.preprocessing.country_indicators import (
     build_from_wdi,
