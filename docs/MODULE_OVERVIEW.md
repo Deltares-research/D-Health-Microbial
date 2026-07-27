@@ -131,7 +131,51 @@ Output Layer
 population = "data/paramaribo_population.nc"
 urban_rural = "data/paramaribo_urban_rural.nc"
 country_indicators = "data/suriname_indicators.toml"
+
+[settings]
+event_in_hours = 1.0
+
+[settings.pathogen]
+selected = "E.coli"
+
+[settings.pathogen.pathogens."E.coli"]
+alpha = 0.373
+beta = 39.71
+source = "Teunis et al. (2008)"
+
+[[settings.population_groups]]
+name = "adults"
+depth_thresholds = [
+    { name = "wading", min_depth = 0.1, ing = 10.0, unit = "ml/h" },
+    { name = "swimming", min_depth = 1.5, ing = 30.0, unit = "ml/h" },
+]
+
+[[settings.population_groups]]
+name = "children"
+depth_thresholds = [
+    { name = "wading", min_depth = 0.1, ing = 30.0, unit = "ml/h" },
+    { name = "swimming", min_depth = 0.5, ing = 50.0, unit = "ml/h" },
+]
+
+[settings.emissions]
+per_capita_ecoli_rate = 1000000000.0
+total_population_group = "total"
+sanitation_reductions = [
+    { name = "Safe", urban_reduction_factor = 0.1, rural_reduction_factor = 0.1 },
+    { name = "Advanced", urban_reduction_factor = 0.25, rural_reduction_factor = 0.25 },
+    { name = "Basic", urban_reduction_factor = 0.7, rural_reduction_factor = 0.3 },
+    { name = "None", urban_reduction_factor = 1.0, rural_reduction_factor = 1.0 },
+]
 ```
+Key parameters are detailed below. Those marked (*editable*) may de varied as part of scenario analysis. We do not recommend editing of other parameters.
+- [exposure]: locations of downloaded source files
+- [settings]: "event_in_hours" is used if any of the depth_thresholds in [[settings.population_groups]] use the unit 'ml/event' (*editable*)
+- [settings.pathogen]: "selected" is the pathogen of interest. Currently "E.coli" is the only option
+- [settings.pathogen.pathogens."E.coli"]: alpha and beta values used for the beta-poisson dose-response model (*editable*)
+- [[settings.population_groups]]: volume of water ingested by adults/children while wading/swimming (*editable*)
+- [settings.emissions]:
+   - "per_capita_ecoli_rate" is the amount of ecoli emitted by 1 person (CFU/100ml) (*editable*)
+   - "sanitation_reductions" is the fraction of pathogen remaining after sanitation measures
 
 **config.toml** (one per run/scenario):
 ```toml
