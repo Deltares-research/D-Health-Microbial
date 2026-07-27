@@ -329,7 +329,7 @@ edges = DEFAULT_RISK_EDGES
 labels = [f"{edges[i]:.1f}-{edges[i + 1]:.1f}" for i in range(len(edges) - 1)]
 
 fig, ax = plt.subplots(figsize=(8, 5))
-index = np.arrange(len(labels))
+index = np.arange(len(labels))
 width = 0.8 / len(result.risk_class_counts)
 for i, (group, counts) in enumerate(result.risk_class_counts.items()):
     ax.bar(index + i * width, counts, width, label=group, alpha=0.8)
