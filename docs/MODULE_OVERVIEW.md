@@ -166,21 +166,16 @@ sanitation_reductions = [
     { name = "Basic", urban_reduction_factor = 0.7, rural_reduction_factor = 0.3 },
     { name = "None", urban_reduction_factor = 1.0, rural_reduction_factor = 1.0 },
 ]
-nodata_sanitation = "none"
-
-[settings.emissions.gdp_weight]
-floor = 0.5
-intercept = 1.0
-divisor = 80000.0
-
 ```
-Editable parameters are indicated below:
-- [exposure]: parameters detail the downloaded source files
-- [settings]: "event_in_hours" is used if any of the depth_thresholds use the unit 'ml/event' (editable)
+Key parameters are detailed below. Those marked (*editable*) may de varied as part of scenario analysis. We do not recommend editing of other parameters.
+- [exposure]: locations of downloaded source files
+- [settings]: "event_in_hours" is used if any of the depth_thresholds in [[settings.population_groups]] use the unit 'ml/event' (*editable*)
 - [settings.pathogen]: "selected" is the pathogen of interest. Currently "E.coli" is the only option
-- [settings.pathogen.pathogens."E.coli"]: alpha and beta values used for the beta-poisson dose-response model (editable)
-- [[settings.population_groups]]: volume of water ingested by adults/children while wading/swimming (editable)
-- [settings.emissions]: "per_capita_ecoli_rate" is the amount of ecoli emitted by 1 person (CFU/100ml)
+- [settings.pathogen.pathogens."E.coli"]: alpha and beta values used for the beta-poisson dose-response model (*editable*)
+- [[settings.population_groups]]: volume of water ingested by adults/children while wading/swimming (*editable*)
+- [settings.emissions]:
+   - "per_capita_ecoli_rate" is the amount of ecoli emitted by 1 person (CFU/100ml) (*editable*)
+   - "sanitation_reductions" is the fraction of pathogen remaining after sanitation measures
 
 **config.toml** (one per run/scenario):
 ```toml
