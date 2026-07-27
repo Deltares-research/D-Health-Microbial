@@ -66,6 +66,9 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/libexpat-2.8.1-hac47afa_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libffi-3.5.2-h3d046cb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-core-3.12.3-h9aca766_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-hdf4-3.12.3-h5bd48a5_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-hdf5-3.12.3-h13e6dad_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-netcdf-3.12.3-h317d2eb_3.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libhwloc-2.13.0-default_h049141e_1000.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libhwy-1.4.0-h172a326_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libiconv-1.18-hc1393d2_2.conda
@@ -298,6 +301,9 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/libexpat-2.8.1-hac47afa_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libffi-3.5.2-h3d046cb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-core-3.12.3-h9aca766_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-hdf4-3.12.3-h5bd48a5_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-hdf5-3.12.3-h13e6dad_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-netcdf-3.12.3-h317d2eb_3.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libhwloc-2.13.0-default_h049141e_1000.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libhwy-1.4.0-h172a326_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libiconv-1.18-hc1393d2_2.conda
@@ -446,6 +452,9 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/libexpat-2.8.1-hac47afa_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libffi-3.5.2-h3d046cb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-core-3.12.3-h9aca766_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-hdf4-3.12.3-h5bd48a5_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-hdf5-3.12.3-h13e6dad_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-netcdf-3.12.3-h317d2eb_3.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libhwloc-2.13.0-default_h049141e_1000.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libhwy-1.4.0-h172a326_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/libiconv-1.18-hc1393d2_2.conda
@@ -1397,6 +1406,56 @@ packages:
     - libgdal-core >=3.12.3,<3.13.0a0
   size: 9783968
   timestamp: 1775714751480
+- conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-hdf4-3.12.3-h5bd48a5_3.conda
+  sha256: dcdebe58f96052088fd2b984219b76131cada7c743e01444e3a3b52ba63338b2
+  md5: 12196f4013de5c65f9bbe11c6be7ef36
+  depends:
+  - hdf4 >=4.2.15,<4.2.16.0a0
+  - libaec >=1.1.5,<2.0a0
+  - libgdal-core 3.12.3 h9aca766_3
+  - ucrt >=10.0.20348.0
+  - vc >=14.3,<15
+  - vc14_runtime >=14.44.35208
+  license: MIT
+  license_family: MIT
+  purls: []
+  run_exports: {}
+  size: 566553
+  timestamp: 1775717843819
+- conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-hdf5-3.12.3-h13e6dad_3.conda
+  sha256: ddba8446e7649ecf267c17fa1d90a7dc7fd413f17d16df23508fac85f3041f51
+  md5: 9946806413c7d763956dbab2a3608748
+  depends:
+  - hdf5 >=2.1.0,<3.0a0
+  - libgdal-core 3.12.3 h9aca766_3
+  - ucrt >=10.0.20348.0
+  - vc >=14.3,<15
+  - vc14_runtime >=14.44.35208
+  license: MIT
+  license_family: MIT
+  purls: []
+  run_exports: {}
+  size: 644808
+  timestamp: 1775718006331
+- conda: https://conda.anaconda.org/conda-forge/win-64/libgdal-netcdf-3.12.3-h317d2eb_3.conda
+  sha256: a496d73bfcf5b6c034653af3b0c8be55e162f24319606509fbc24094dc68c3c4
+  md5: 8ebd73dd36d754839c9ba3d4c605a7b9
+  depends:
+  - hdf4 >=4.2.15,<4.2.16.0a0
+  - hdf5 >=2.1.0,<3.0a0
+  - libgdal-core 3.12.3 h9aca766_3
+  - libgdal-hdf4 3.12.3.*
+  - libgdal-hdf5 3.12.3.*
+  - libnetcdf >=4.10.0,<4.10.1.0a0
+  - ucrt >=10.0.20348.0
+  - vc >=14.3,<15
+  - vc14_runtime >=14.44.35208
+  license: MIT
+  license_family: MIT
+  purls: []
+  run_exports: {}
+  size: 689988
+  timestamp: 1775719608526
 - conda: https://conda.anaconda.org/conda-forge/win-64/libhwloc-2.13.0-default_h049141e_1000.conda
   sha256: 2ee12e37223dfcd0acd050c80a91150c482b6e2899198521e1800dce66662467
   md5: 6a01c986e30292c715038d2788aa1385

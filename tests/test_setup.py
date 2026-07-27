@@ -104,7 +104,9 @@ def test_model_setup_writes_settings_without_event_and_supports_manual_iso(
 
     payload = tomllib.loads(result.settings_toml.read_text(encoding="utf-8"))
     assert "event" not in payload
-    assert "output" not in payload
+    # [output] carries only the raster format, which the setup's own rasters
+    # were written in. Run-time-only fields must still not leak in here.
+    assert payload["output"] == {"raster_format": "netcdf"}
     assert payload["exposure"]["population"] == "data/sur_population_2020_combined.nc"
     assert payload["exposure"]["urban_rural"] == "data/sur_urban_rural.nc"
     assert payload["exposure"]["country_indicators"] == "data/sur_indicators.toml"
