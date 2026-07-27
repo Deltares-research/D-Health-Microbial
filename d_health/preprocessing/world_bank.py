@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-import wbgapi as wb
 
 from d_health.config.preprocessing import DEFAULT_INDICATOR_CODES, WDIConfig
 
@@ -31,6 +30,10 @@ def _fetch_latest(indicator_codes: tuple[str, ...]) -> pd.DataFrame:
     null. Economies for which an indicator has never been reported are
     simply absent from the result (as if dropped via ``dropna``).
     """
+    # Imported here so that installations that only run the model — which never
+    # reaches the preprocessing layer — do not need wbgapi present.
+    import wbgapi as wb
+
     rows: list[dict[str, object]] = []
     for r in wb.data.fetch(list(indicator_codes), mrnev=1, labels=True):
         # Row shape (labels=True):
