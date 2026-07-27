@@ -12,7 +12,7 @@ import requests
 from rasterio.mask import mask as rio_mask
 
 from d_health.config.preprocessing import GHSSmodConfig
-from d_health.io import from_numpy, write_netcdf
+from d_health.io import from_numpy, write_raster
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +249,12 @@ def get_smod_data(
     urban_rural.attrs.update(
         {f"class_{code}": label for code, label in OUTPUT_CLASSES.items()}
     )
-    write_netcdf(urban_rural, out_path, descriptions=("urban_rural",))
+    write_raster(
+        urban_rural,
+        out_path,
+        descriptions=("urban_rural",),
+        nodata=OUTPUT_NODATA,
+    )
 
     counts = {
         "urban": int((reclassified == 1).sum()),

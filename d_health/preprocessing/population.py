@@ -16,7 +16,7 @@ from d_health.config.preprocessing import (
     CHILD_AGE_BINS,
     WorldPopConfig,
 )
-from d_health.io import from_numpy, write_netcdf
+from d_health.io import from_numpy, write_raster
 
 logger = logging.getLogger(__name__)
 
@@ -309,10 +309,11 @@ def get_population_data(
         name="population",
         group=("children", "adults", "total"),
     )
-    write_netcdf(
+    write_raster(
         population,
         out_path,
         descriptions=("children_0_9", "adults_10_plus", "total"),
+        units="people",
     )
 
     if missing:
