@@ -14,10 +14,17 @@ import xarray as xr
 from rasterio.crs import CRS
 from rasterio.transform import from_origin
 
-from d_health.io import from_numpy, load_population, write_netcdf
+from d_health.io import (
+    from_numpy,
+    load_population,
+    raster_path,
+    write_netcdf,
+    write_raster,
+)
 
 TRANSFORM = from_origin(west=200000.0, north=600000.0, xsize=100.0, ysize=100.0)
 CRS_UTM = CRS.from_epsg(32621)
+FORMATS = ["netcdf", "geotiff"]
 
 
 def float_2d():
@@ -137,3 +144,101 @@ def test_group_labels_still_roundtrip(tmp_path):
     assert list(map(str, back["group"].values)) == ["children", "adults", "total"]
     assert np.allclose(back.sel(group="adults").values, 2.0, equal_nan=True)
     assert back.rio.crs == CRS_UTM
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+@pytest.mark.parametrize("factory", [float_2d, int_2d, grouped_3d])
+def test_write_raster_is_georeferenced_in_both_formats(tmp_path, fmt, factory):
+    path = write_raster(factory(), raster_path(tmp_path, "layer", fmt))
+
+    assert path.suffix == {"netcdf": ".nc", "geotiff": ".tif"}[fmt]
+    with open_with_gdal(path) as src:
+        assert src.crs == CRS_UTM
+        assert src.transform == TRANSFORM
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_group_labels_roundtrip_in_both_formats(tmp_path, fmt):
+    path = write_raster(
+        grouped_3d(),
+        raster_path(tmp_path, "population", fmt),
+        descriptions=("children_0_9", "adults_10_plus", "total"),
+    )
+    back = load_population(path)
+
+    assert list(map(str, back["group"].values)) == ["children", "adults", "total"]
+    assert np.allclose(back.sel(group="adults").values, 2.0, equal_nan=True)
+    assert back.rio.crs == CRS_UTM
+
+
+def test_geotiff_bands_are_named_after_groups(tmp_path):
+    """QGIS shows these in the layer styling panel."""
+    path = write_raster(grouped_3d(), raster_path(tmp_path, "risk", "geotiff"))
+
+    with rasterio.open(path) as src:
+        assert src.count == 3
+        assert src.descriptions == ("children", "adults", "total")
+
+
+def test_geotiff_descriptions_do_not_displace_group_labels(tmp_path):
+    """Group labels are what .sel(group=...) and the config's group names
+    select on, so they must own the band description. Longer descriptions go
+    to a per-band long_name tag."""
+    path = write_raster(
+        grouped_3d(),
+        raster_path(tmp_path, "pop", "geotiff"),
+        descriptions=("children_0_9", "adults_10_plus", "total"),
+    )
+
+    with rasterio.open(path) as src:
+        assert src.descriptions == ("children", "adults", "total")
+        assert src.tags(1)["long_name"] == "children_0_9"
+        assert src.tags(2)["long_name"] == "adults_10_plus"
+
+
+def test_geotiff_2d_description_names_the_single_band(tmp_path):
+    """With no group dim there is nothing to conflict with."""
+    path = write_raster(
+        float_2d(),
+        raster_path(tmp_path, "conc", "geotiff"),
+        descriptions=("ecoli_per_100ml",),
+    )
+
+    with rasterio.open(path) as src:
+        assert src.descriptions == ("ecoli_per_100ml",)
+
+
+def test_geotiff_float_nodata_is_nan(tmp_path):
+    path = write_raster(float_2d(), raster_path(tmp_path, "conc", "geotiff"))
+
+    with rasterio.open(path) as src:
+        assert np.isnan(src.nodata)
+
+
+def test_geotiff_int_layer_has_no_nodata_by_default(tmp_path):
+    """flood_classes uses 0 for 'dry' — a real class, not absence of data."""
+    path = write_raster(int_2d(), raster_path(tmp_path, "flood_classes", "geotiff"))
+
+    with rasterio.open(path) as src:
+        assert src.nodata is None
+        assert src.dtypes[0] == "int16"
+
+
+def test_geotiff_explicit_nodata_is_honoured(tmp_path):
+    """urban_rural uses 0 as nodata (preprocessing/smod.py OUTPUT_NODATA)."""
+    path = write_raster(
+        int_2d(), raster_path(tmp_path, "urban_rural", "geotiff"), nodata=0
+    )
+
+    with rasterio.open(path) as src:
+        assert src.nodata == 0
+
+
+def test_write_raster_rejects_unknown_suffix(tmp_path):
+    with pytest.raises(ValueError, match="Unsupported raster suffix"):
+        write_raster(float_2d(), tmp_path / "layer.shp")
+
+
+def test_raster_path_rejects_unknown_format(tmp_path):
+    with pytest.raises(ValueError, match="Unknown raster format"):
+        raster_path(tmp_path, "layer", "geopackage")
