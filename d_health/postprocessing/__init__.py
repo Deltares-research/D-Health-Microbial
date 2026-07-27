@@ -1,4 +1,4 @@
-from d_health.postprocessing.aggregate import per_group_totals
+from d_health.postprocessing.aggregate import per_group_totals, zonal_sums
 from d_health.postprocessing.coverage import (
     CoverageBreakdown,
     flooded_dry_stats,
@@ -19,6 +19,7 @@ from d_health.postprocessing.risk_classes import (
 
 __all__ = [
     "per_group_totals",
+    "zonal_sums",
     "plot_per_group",
     "plot_raster",
     "CoverageBreakdown",

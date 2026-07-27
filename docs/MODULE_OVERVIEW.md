@@ -72,7 +72,7 @@ Output Layer
    - **Infected**: Number of infected individuals
 
 #### 4. **Postprocessing (`d_health.postprocessing`)**
-   - Aggregate results by age group
+   - Aggregate results by age group, and over polygons (`zonal_sums`)
    - Classify flood depth into risk bands
    - Generate plots and summary statistics
    - Compute infected population coverage within flood extent
