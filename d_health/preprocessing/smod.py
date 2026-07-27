@@ -177,8 +177,9 @@ def get_smod_data(
     Parameters
     ----------
     output_path : Path | str
-        Full path of the reclassified netCDF to write (a ``.tif``/``.tiff``
-        suffix is replaced with ``.nc``). Parent directories are created if
+        Full path of the reclassified raster to write. **The suffix chooses the
+        format**: ``.nc`` writes netCDF, ``.tif`` a GeoTIFF (see
+        :func:`d_health.io.write_raster`). Parent directories are created if
         they don't exist.
     clip : optional
         Region of interest. ``None`` reclassifies the full global raster.
@@ -191,12 +192,9 @@ def get_smod_data(
     Returns
     -------
     Path
-        Path to the reclassified Urban/Rural netCDF (``output_path`` with a
-        ``.nc`` suffix).
+        ``output_path``, unchanged.
     """
     out_path = Path(output_path)
-    if out_path.suffix.lower() in {".tif", ".tiff"}:
-        out_path = out_path.with_suffix(".nc")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     clip_geoms = _normalize_clip(clip, SMOD_CRS)

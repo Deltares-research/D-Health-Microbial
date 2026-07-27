@@ -97,6 +97,9 @@ d-health setup --bbox -55.27 5.78 -55.10 5.93 --root examples/quickbuild/data/se
 # Skip reverse geocoding by naming the country yourself
 d-health setup --bbox -55.27 5.78 -55.10 5.93 --root data/setup --country-iso SUR --year 2020
 
+# ...or write GeoTIFFs instead of netCDFs
+d-health setup --bbox -55.27 5.78 -55.10 5.93 --root data/setup --format geotiff
+
 # Run a scenario
 d-health run --config config.toml
 d-health run -c config.toml --out other/dir --no-plots
@@ -105,6 +108,10 @@ d-health run -c config.toml --out other/dir --no-plots
 `setup` writes `data/*.nc` + `data/*_indicators.toml` (the exposure inputs) and a
 `settings.toml` with no `[event]` section — the flood map is injected later, so one
 setup serves many scenarios.
+
+`--format geotiff` writes `data/*.tif` instead and records the choice in
+`settings.toml`, so every run built from that setup writes GeoTIFF outputs too. See
+[Raster format](#raster-format).
 
 ## Things worth knowing before you trust a number
 
@@ -137,11 +144,13 @@ These are the model's load-bearing conventions. Each has bitten someone.
   change it.
 
 - **Per-group outputs are stacked along a `group` dimension**, not one variable per
-  group: `ds["risk"].sel(group="adults")`, not `ds["risk_adults"]`.
+  group: `ds["risk"].sel(group="adults")`, not `ds["risk_adults"]`. In GeoTIFF mode
+  the same layers become one named band per group, and `load_population` reads
+  either layout back to the same labelled `group` dim.
 
 ## Outputs
 
-Written to `output.out_dir`. Everything is netCDF; no GeoTIFFs, no JSON.
+Written to `output.out_dir`. One raster format or the other, never both; no JSON.
 
 | File | Content |
 |---|---|
@@ -153,6 +162,32 @@ Written to `output.out_dir`. Everything is netCDF; no GeoTIFFs, no JSON.
 
 Summary statistics (`totals`, `coverage`, `risk_class_counts`) are returned on the
 `ModelOutputs` object — they are **not** written to disk.
+
+### Raster format
+
+Every raster the model writes — the setup inputs and all outputs — is
+georeferenced and opens directly in QGIS. Pick the format once, at setup:
+
+```bash
+d-health setup --bbox ... --format geotiff     # .tif everywhere
+```
+
+The choice lands in `settings.toml` under `[output]`, and
+`write_run_config_from_setup` carries it into each `config.toml`, so runs inherit
+it. Override per run with `output.raster_format = "netcdf" | "geotiff"` in the
+config, or `d-health run --format geotiff`.
+
+Which to pick:
+
+- **netCDF** (default) — CF-1.8 georeferenced, zlib-compressed, and keeps the
+  labelled `group` dimension, so `ds["risk"].sel(group="adults")` works. GDAL reads
+  a per-group file as N bands in group order. Note the band *names* are not shown:
+  the group labels live in dataset metadata as
+  `NETCDF_DIM_group_VALUES={adults,children,total}`, so QGIS lists plain
+  "Band 1 / 2 / 3".
+- **GeoTIFF** — deflate-compressed and tiled, with each band named after its group,
+  so QGIS shows "adults", "children", "total" in the styling panel. Choose this if
+  you spend more time in a GIS than in xarray.
 
 ## Project layout
 

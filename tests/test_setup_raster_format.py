@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import tomllib
 
+import numpy as np
 import pytest
+import rasterio
 import tomli_w
+from rasterio.crs import CRS
+from rasterio.transform import from_origin
 
 from d_health.config.setup import load_setup_config
 from d_health.model.setup import (
@@ -13,6 +17,7 @@ from d_health.model.setup import (
     model_setup,
     write_run_config_from_setup,
 )
+from d_health.preprocessing.smod import get_smod_data
 
 
 def test_setup_overrides_default_to_netcdf():
@@ -129,3 +134,40 @@ def test_model_setup_writes_inputs_with_the_chosen_suffix(
     assert payload["output"]["raster_format"] == fmt
     assert payload["exposure"]["population"].endswith(suffix)
     assert payload["exposure"]["urban_rural"].endswith(suffix)
+
+
+@pytest.mark.parametrize("suffix", [".nc", ".tif"])
+def test_get_smod_data_writes_the_suffix_it_is_given(monkeypatch, tmp_path, suffix):
+    """The preprocessing writers used to coerce .tif to .nc, which silently
+    broke geotiff setups: settings.toml recorded a .tif that was never written.
+    Only the download is stubbed here — the real write path runs."""
+    source = tmp_path / "smod_source.tif"
+    profile = {
+        "driver": "GTiff",
+        "height": 8,
+        "width": 8,
+        "count": 1,
+        "dtype": "int16",
+        "crs": CRS.from_epsg(4326),
+        "transform": from_origin(-55.3, 5.95, 0.01, 0.01),
+    }
+    # SMOD class codes: 30 = urban centre, 11 = very low density rural.
+    with rasterio.open(source, "w", **profile) as dst:
+        dst.write(np.full((8, 8), 30, dtype="int16"), 1)
+
+    monkeypatch.setattr(
+        "d_health.preprocessing.smod._download_zip", lambda url, dest: dest
+    )
+    monkeypatch.setattr(
+        "d_health.preprocessing.smod._extract_tif",
+        lambda zip_path, tif_name, tmpdir: source,
+    )
+
+    out = tmp_path / f"urban_rural{suffix}"
+    returned = get_smod_data(out)
+
+    assert returned == out
+    assert out.exists()
+    assert not out.with_suffix(".nc" if suffix == ".tif" else ".tif").exists()
+    with rasterio.open(out) as src:
+        assert src.crs == CRS.from_epsg(4326)
