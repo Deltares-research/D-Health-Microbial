@@ -3,8 +3,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
+import rasterio
 import rioxarray  # noqa: F401  (registers the .rio accessor)
 import xarray as xr
 from rasterio.coords import BoundingBox
@@ -14,6 +16,21 @@ logger = logging.getLogger(__name__)
 # Suffixes we treat as GeoTIFF (read via rioxarray) vs netCDF (read via xarray).
 _TIFF_SUFFIXES = {".tif", ".tiff"}
 _NETCDF_SUFFIXES = {".nc", ".nc4", ".cdf"}
+
+RasterFormat = Literal["netcdf", "geotiff"]
+
+# The one place a format name becomes a file suffix.
+SUFFIXES: dict[str, str] = {"netcdf": ".nc", "geotiff": ".tif"}
+
+
+def raster_path(out_dir: Path | str, stem: str, fmt: RasterFormat) -> Path:
+    """Build ``out_dir/stem.<suffix>`` for the chosen raster format."""
+    try:
+        suffix = SUFFIXES[fmt]
+    except KeyError as exc:
+        valid = ", ".join(sorted(SUFFIXES))
+        raise ValueError(f"Unknown raster format {fmt!r}. Valid: {valid}") from exc
+    return Path(out_dir) / f"{stem}{suffix}"
 
 
 def _dataset_to_dataarray(ds: xr.Dataset) -> xr.DataArray:
@@ -249,6 +266,24 @@ def from_numpy(
     return da
 
 
+def _apply_descriptions(da: xr.DataArray, descriptions: Sequence[str]) -> xr.DataArray:
+    """Attach ``descriptions`` to ``da`` in a CF-legal way.
+
+    CF requires ``long_name`` to be a single string, so only a lone description
+    becomes one. Several descriptions (one per ``group`` layer) go to a joined
+    ``group_descriptions`` attr instead — the short labels already live in the
+    ``group`` coordinate. GeoTIFF band descriptions take the raw sequence, not
+    this attr, so nothing is lost.
+    """
+    labels = tuple(str(d) for d in descriptions)
+    da = da.copy()
+    if len(labels) == 1:
+        da.attrs["long_name"] = labels[0]
+    else:
+        da.attrs["group_descriptions"] = ", ".join(labels)
+    return da
+
+
 def write_netcdf(
     obj: xr.DataArray | xr.Dataset,
     out_path: Path | str,
@@ -256,13 +291,15 @@ def write_netcdf(
     crs=None,
     descriptions: Sequence[str] | None = None,
     name: str | None = None,
+    units: str | None = None,
 ) -> Path:
     """Write a DataArray/Dataset to a compressed, CF-georeferenced netCDF.
 
     The CRS is written via rioxarray (``spatial_ref`` coordinate +
     ``grid_mapping`` attr) so the file round-trips through
-    :func:`load_raster` and opens in QGIS/GDAL. Data variables are
-    zlib-compressed; float variables get a ``NaN`` ``_FillValue``.
+    :func:`load_raster` **and** opens as a georeferenced raster in QGIS/GDAL.
+    Data variables are zlib-compressed; float variables get a ``NaN``
+    ``_FillValue``.
     """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -273,23 +310,145 @@ def write_netcdf(
         elif obj.name is None:
             obj = obj.rename("data")
         if descriptions is not None:
-            obj.attrs["long_name"] = tuple(descriptions)
+            obj = _apply_descriptions(obj, descriptions)
+        if units is not None:
+            obj = obj.copy()
+            obj.attrs["units"] = units
         ds = obj.to_dataset()
     else:
         ds = obj
 
     if crs is not None:
         ds = ds.rio.write_crs(crs)
+    # CF axis attrs (standard_name / units / axis) on x and y — GDAL's netCDF
+    # driver uses these to identify the axes and build a geotransform.
+    ds = ds.rio.write_coordinate_system()
+    ds.attrs.setdefault("Conventions", "CF-1.8")
 
     encoding = {}
     for var in ds.data_vars:
         enc = {"zlib": True, "complevel": 4}
+        # `to_netcdf(encoding=...)` REPLACES a variable's .encoding rather than
+        # merging into it, so the grid_mapping rioxarray stored there has to be
+        # carried over by hand. Without it the CRS is written but never linked
+        # to the data variable, and the file opens ungeoreferenced in GIS.
+        grid_mapping = ds[var].encoding.get("grid_mapping")
+        if grid_mapping is not None:
+            enc["grid_mapping"] = grid_mapping
         if np.issubdtype(ds[var].dtype, np.floating):
             enc["_FillValue"] = np.nan
         encoding[var] = enc
+
+    # CF forbids _FillValue on coordinate variables; xarray adds one to float
+    # coords unless explicitly told not to.
+    for coord in ("x", "y", "group"):
+        if coord in ds.coords:
+            encoding[coord] = {"_FillValue": None}
 
     ds.to_netcdf(out_path, engine="netcdf4", encoding=encoding)
 
     n_vars = len(ds.data_vars)
     logger.info("Wrote %s (%d variable(s))", out_path.name, n_vars)
     return out_path
+
+
+def write_geotiff(
+    da: xr.DataArray,
+    out_path: Path | str,
+    *,
+    descriptions: Sequence[str] | None = None,
+    units: str | None = None,
+    nodata: float | None = None,
+) -> Path:
+    """Write a DataArray to a compressed, tiled, georeferenced GeoTIFF.
+
+    A 3-D ``(group, y, x)`` array becomes a multi-band GeoTIFF, one band per
+    group, each band **named after its group label**. That is the layout
+    :func:`load_population` reads back, and the group labels are what
+    ``.sel(group=...)`` and the config's group names select on — so they own
+    the band description. Longer ``descriptions`` are written as a per-band
+    ``long_name`` tag instead, where they inform without displacing the labels.
+
+    For a 2-D array there is no group dim to conflict with, so a single
+    ``descriptions`` entry names the one band.
+
+    ``nodata`` defaults to ``NaN`` for float arrays and to *no nodata* for
+    integer arrays — integer layers here (``flood_classes``) use ``0`` as a
+    meaningful class, not as absence of data, so a caller must opt in.
+    """
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    labels: tuple[str, ...] = ()
+    if "group" in da.dims:
+        labels = tuple(str(g) for g in da["group"].values)
+        # rioxarray writes the leading dim as GeoTIFF bands only when it is
+        # named `band`; the group labels are preserved as band descriptions.
+        da = da.rename({"group": "band"}).assign_coords(
+            band=np.arange(1, da.sizes["group"] + 1)
+        )
+
+    if units is not None:
+        da = da.copy()
+        da.attrs["units"] = units
+
+    if nodata is None and np.issubdtype(da.dtype, np.floating):
+        nodata = np.nan
+    if nodata is not None:
+        da = da.rio.write_nodata(nodata)
+
+    da.rio.to_raster(out_path, compress="deflate", tiled=True)
+
+    long_names = tuple(str(d) for d in descriptions) if descriptions else ()
+    # Group labels win the band description; without a group dim the lone
+    # description names the single band.
+    band_names = labels or long_names
+    if band_names or long_names:
+        with rasterio.open(out_path, "r+") as dst:
+            for what, values in (
+                ("band name", band_names),
+                ("description", long_names),
+            ):
+                if values and len(values) != dst.count:
+                    raise ValueError(
+                        f"{len(values)} {what}(s) for a {dst.count}-band "
+                        f"raster: {values}"
+                    )
+            for i, band_name in enumerate(band_names, start=1):
+                dst.set_band_description(i, band_name)
+            if labels and long_names:
+                for i, long_name in enumerate(long_names, start=1):
+                    dst.update_tags(i, long_name=long_name)
+
+    logger.info("Wrote %s (%d band(s))", out_path.name, max(len(band_names), 1))
+    return out_path
+
+
+def write_raster(
+    obj: xr.DataArray | xr.Dataset,
+    out_path: Path | str,
+    *,
+    descriptions: Sequence[str] | None = None,
+    units: str | None = None,
+    nodata: float | None = None,
+) -> Path:
+    """Write a raster, choosing the format from ``out_path``'s suffix.
+
+    The write-side mirror of :func:`load_raster`: ``.nc``/``.nc4``/``.cdf`` go
+    to :func:`write_netcdf`, ``.tif``/``.tiff`` to :func:`write_geotiff`. Use
+    :func:`raster_path` to build the path from a :data:`RasterFormat`.
+    """
+    out_path = Path(out_path)
+    suffix = out_path.suffix.lower()
+    if suffix in _NETCDF_SUFFIXES:
+        return write_netcdf(obj, out_path, descriptions=descriptions, units=units)
+    if suffix in _TIFF_SUFFIXES:
+        if isinstance(obj, xr.Dataset):
+            obj = _dataset_to_dataarray(obj)
+        return write_geotiff(
+            obj, out_path, descriptions=descriptions, units=units, nodata=nodata
+        )
+    raise ValueError(
+        f"Unsupported raster suffix {suffix!r} for {out_path}. "
+        f"Expected one of {sorted(_TIFF_SUFFIXES | _NETCDF_SUFFIXES)}."
+    )

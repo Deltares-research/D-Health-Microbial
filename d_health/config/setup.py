@@ -7,6 +7,7 @@ from pydantic import Field
 
 from d_health.config.base import FrozenModel
 from d_health.config.run import ExposureConfig, SettingsConfig
+from d_health.io import RasterFormat
 
 
 class SetupMetadata(FrozenModel):
@@ -29,6 +30,25 @@ class SetupMetadata(FrozenModel):
     )
 
 
+class SetupOutputConfig(FrozenModel):
+    """Output options a setup can fix ahead of any particular run.
+
+    Deliberately *not* ``OutputConfig`` — that one requires ``out_dir``, which
+    setup has no business choosing. Only the raster format belongs here,
+    because it must match the format the setup's own input rasters were
+    written in.
+    """
+
+    raster_format: RasterFormat = Field(
+        default="netcdf",
+        description=(
+            "On-disk format for the rasters this setup wrote, and the default "
+            "for runs built from it: ``netcdf`` (``.nc``) or ``geotiff`` "
+            "(``.tif``)."
+        ),
+    )
+
+
 class SetupConfig(FrozenModel):
     """Pre-run setup config.
 
@@ -40,6 +60,7 @@ class SetupConfig(FrozenModel):
     exposure: ExposureConfig
     settings: SettingsConfig = Field(default_factory=SettingsConfig)
     metadata: SetupMetadata
+    output: SetupOutputConfig = Field(default_factory=SetupOutputConfig)
 
 
 def load_setup_config(path: str | Path) -> SetupConfig:

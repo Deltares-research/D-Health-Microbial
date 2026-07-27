@@ -180,6 +180,9 @@ outputs/run_wl3m/
 └── infected_<group>.png
 ```
 
+The rasters are `.tif` instead when `output.raster_format = "geotiff"` — see
+[Opening the results in QGIS](#opening-the-results-in-qgis).
+
 Summary statistics are **not** written to disk — there are no `totals.json` or
 `coverage.json` files. They live on the returned `ModelOutputs`
 (`result.totals`, `result.coverage`, `result.risk_class_counts`). Serialise them
@@ -284,8 +287,9 @@ print(f"Cells with >50% infection risk: {high_risk}")
 
 ### Load the flood-class map
 
-Every raster the pipeline writes is a **netCDF**, not a GeoTIFF. The package's
-own loader handles both and attaches the CRS:
+The pipeline writes netCDF by default, or GeoTIFF if you asked for it (see
+[Opening the results in QGIS](#opening-the-results-in-qgis)). The package's own
+loader handles both and attaches the CRS:
 
 ```python
 import numpy as np
@@ -302,6 +306,41 @@ print("Flood class distribution:")
 for cls, count in zip(classes, counts, strict=True):
     print(f"  Class {int(cls)}: {count} cells")
 ```
+
+### Opening the results in QGIS
+
+Every raster the model writes — the setup inputs and all outputs — is
+georeferenced. Drag a file straight onto the QGIS canvas and it lands in the
+right place; no "Georeferencer" step, no manual CRS assignment.
+
+Pick the format once, at setup, and runs inherit it:
+
+```bash
+d-health setup --bbox -55.27 5.78 -55.10 5.93 --root data/setup --format geotiff
+```
+
+The choice is recorded in `settings.toml` under `[output]` and copied into each
+`config.toml` by `write_run_config_from_setup`. Override it for a single run with
+`d-health run --format netcdf`, or by setting `output.raster_format` in the
+config.
+
+**netCDF (default)** — CF-1.8, zlib-compressed, and keeps the labelled `group`
+dimension so `.sel(group="adults")` works in xarray. One caveat when you open a
+per-group file (`dose`, `risk`, `infected`, `population`) in QGIS: GDAL shows the
+groups as bands in order, but *unnamed* — the layer list reads "Band 1", "Band 2",
+"Band 3". The labels are there, in the layer metadata:
+
+```
+NETCDF_DIM_group_VALUES={adults,children,total}
+```
+
+Band order matches that list. Check it in *Layer Properties → Information* if you
+are unsure which band is which.
+
+**GeoTIFF** — deflate-compressed and tiled, with each band **named after its
+group**, so the styling panel shows "adults", "children", "total" directly. If you
+spend more time in QGIS than in xarray, this is the friendlier option. The model
+reads either format back, so nothing else changes.
 
 ### Plot results
 
@@ -431,6 +470,10 @@ d-health setup \
 # Skip reverse geocoding by naming the country yourself:
 d-health setup --bbox -55.27 5.78 -55.10 5.93 --root data/setup_paramaribo \
     --country-iso SUR --year 2020
+
+# Write GeoTIFFs instead of netCDFs (runs from this setup inherit the choice):
+d-health setup --bbox -55.27 5.78 -55.10 5.93 --root data/setup_paramaribo \
+    --format geotiff
 ```
 
 `--bbox` takes four space-separated numbers (`XMIN YMIN XMAX YMAX`) in

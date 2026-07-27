@@ -139,6 +139,7 @@ tomli-w = ">=1.2.0,<2"
 xarray = ">=2026.4.0,<2027"
 rioxarray = ">=0.22.0,<0.23"
 netcdf4 = ">=1.7.4,<2"
+libgdal-netcdf = ">=3.12.3,<4"
 
 [tool.pixi.tasks]
 tests = { cmd = "pytest", default-environment = "test" }

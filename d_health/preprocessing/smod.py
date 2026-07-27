@@ -12,7 +12,7 @@ import requests
 from rasterio.mask import mask as rio_mask
 
 from d_health.config.preprocessing import GHSSmodConfig
-from d_health.io import from_numpy, write_netcdf
+from d_health.io import from_numpy, write_raster
 
 logger = logging.getLogger(__name__)
 
@@ -177,8 +177,9 @@ def get_smod_data(
     Parameters
     ----------
     output_path : Path | str
-        Full path of the reclassified netCDF to write (a ``.tif``/``.tiff``
-        suffix is replaced with ``.nc``). Parent directories are created if
+        Full path of the reclassified raster to write. **The suffix chooses the
+        format**: ``.nc`` writes netCDF, ``.tif`` a GeoTIFF (see
+        :func:`d_health.io.write_raster`). Parent directories are created if
         they don't exist.
     clip : optional
         Region of interest. ``None`` reclassifies the full global raster.
@@ -191,12 +192,9 @@ def get_smod_data(
     Returns
     -------
     Path
-        Path to the reclassified Urban/Rural netCDF (``output_path`` with a
-        ``.nc`` suffix).
+        ``output_path``, unchanged.
     """
     out_path = Path(output_path)
-    if out_path.suffix.lower() in {".tif", ".tiff"}:
-        out_path = out_path.with_suffix(".nc")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     clip_geoms = _normalize_clip(clip, SMOD_CRS)
@@ -249,7 +247,12 @@ def get_smod_data(
     urban_rural.attrs.update(
         {f"class_{code}": label for code, label in OUTPUT_CLASSES.items()}
     )
-    write_netcdf(urban_rural, out_path, descriptions=("urban_rural",))
+    write_raster(
+        urban_rural,
+        out_path,
+        descriptions=("urban_rural",),
+        nodata=OUTPUT_NODATA,
+    )
 
     counts = {
         "urban": int((reclassified == 1).sum()),
