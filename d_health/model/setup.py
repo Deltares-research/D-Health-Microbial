@@ -13,7 +13,8 @@ from pydantic import Field
 from d_health.config.base import FrozenModel
 from d_health.config.preprocessing import GHSSmodConfig, WDIConfig, WorldPopConfig
 from d_health.config.run import ExposureConfig, SettingsConfig
-from d_health.config.setup import SetupConfig, SetupMetadata
+from d_health.config.setup import SetupConfig, SetupMetadata, SetupOutputConfig
+from d_health.io import SUFFIXES, RasterFormat
 from d_health.preprocessing import (
     get_country_indicators,
     get_population_data,
@@ -50,6 +51,14 @@ class ModelSetupOverrides(FrozenModel):
     settings: SettingsConfig = Field(default_factory=SettingsConfig)
     reverse_geocode_timeout_s: float = Field(default=30.0, gt=0.0)
     reverse_geocode_user_agent: str = Field(default="d_health/0.1")
+    raster_format: RasterFormat = Field(
+        default="netcdf",
+        description=(
+            "Format for the population and urban/rural rasters this setup "
+            "writes: ``netcdf`` (``.nc``) or ``geotiff`` (``.tif``). Recorded "
+            "in settings.toml so runs built from this setup inherit it."
+        ),
+    )
 
 
 class ModelSetupResult(FrozenModel):
@@ -322,10 +331,11 @@ def model_setup(
         country_source = "nominatim_reverse_geocode"
 
     iso_lower = country_code.lower()
+    suffix = SUFFIXES[ov.raster_format]
     population_path = (
-        data_dir / f"{iso_lower}_population_{ov.population_year}_combined.nc"
+        data_dir / f"{iso_lower}_population_{ov.population_year}_combined{suffix}"
     )
-    urban_rural_path = data_dir / f"{iso_lower}_urban_rural.nc"
+    urban_rural_path = data_dir / f"{iso_lower}_urban_rural{suffix}"
     indicators_path = data_dir / f"{iso_lower}_indicators.toml"
 
     logger.info("Generating exposure inputs for %s into %s", country_code, root)
@@ -346,6 +356,7 @@ def model_setup(
             country_indicators=indicators_path,
         ),
         settings=ov.settings,
+        output=SetupOutputConfig(raster_format=ov.raster_format),
         metadata=SetupMetadata(
             country_code=country_code,
             country_name=country_name,
@@ -363,6 +374,9 @@ def model_setup(
         },
         "settings": setup.settings.model_dump(mode="python"),
         "metadata": _drop_none(setup.metadata.model_dump(mode="python")),
+        # write_run_config_from_setup merges this table into the run config, so
+        # a run inherits the format its input rasters were written in.
+        "output": setup.output.model_dump(mode="python"),
     }
     settings_toml.write_text(tomli_w.dumps(payload), encoding="utf-8")
 

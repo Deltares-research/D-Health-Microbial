@@ -55,6 +55,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip writing PNG plots (overrides output.plots).",
     )
+    run.add_argument(
+        "--format",
+        choices=("netcdf", "geotiff"),
+        default=None,
+        help="Override output.raster_format from the config.",
+    )
 
     setup = subparsers.add_parser(
         "setup",
@@ -87,17 +93,30 @@ def _build_parser() -> argparse.ArgumentParser:
         default=2020,
         help="Population year for WorldPop (default: 2020).",
     )
+    setup.add_argument(
+        "--format",
+        choices=("netcdf", "geotiff"),
+        default="netcdf",
+        help="On-disk format for the rasters this setup writes (default: netcdf).",
+    )
     return parser
 
 
-def _apply_overrides(config, out_dir: Path | None, no_plots: bool):
+def _apply_overrides(
+    config, out_dir: Path | None, no_plots: bool, raster_format: str | None = None
+):
     """Return a copy of ``config`` with CLI flag overrides applied."""
     updates: dict = {}
-    if out_dir is not None or no_plots:
+    if out_dir is not None or no_plots or raster_format is not None:
         output = config.output.model_copy(
             update={
                 **({"out_dir": out_dir} if out_dir is not None else {}),
                 **({"plots": False} if no_plots else {}),
+                **(
+                    {"raster_format": raster_format}
+                    if raster_format is not None
+                    else {}
+                ),
             }
         )
         updates["output"] = output
@@ -111,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         config = load_run_config(args.config)
-        config = _apply_overrides(config, args.out, args.no_plots)
+        config = _apply_overrides(config, args.out, args.no_plots, args.format)
         outputs = run_model(config)
         for k, v in outputs.totals.items():
             print(f"{k}: {int(round(v))}")
@@ -123,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
         overrides = ModelSetupOverrides(
             country_code=country_code,
             population_year=args.year,
+            raster_format=args.format,
         )
         result = model_setup(bbox, args.root, overrides=overrides)
         print(f"country_code: {result.country_code}")

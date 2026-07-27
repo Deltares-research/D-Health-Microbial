@@ -9,6 +9,7 @@ from d_health.config.base import FrozenModel
 from d_health.config.emissions import CountryIndicators, EmissionsConfig
 from d_health.config.groups import DepthThreshold, PopulationGroup
 from d_health.config.pathogen import PathogenConfig
+from d_health.io import RasterFormat
 
 
 def _default_population_groups() -> list[PopulationGroup]:
@@ -142,6 +143,18 @@ class OutputConfig(FrozenModel):
         description=(
             "If true, write PNG plots alongside each output raster "
             "(``emissions.png`` plus per-group dose/risk/infected panels)."
+        ),
+    )
+    raster_format: RasterFormat = Field(
+        default="netcdf",
+        description=(
+            "On-disk format for every output raster: ``netcdf`` (default, "
+            "``.nc``) or ``geotiff`` (``.tif``). One or the other, never both. "
+            "Per-group quantities (dose, risk, infected) become a stacked "
+            "``group`` dimension in netCDF and a multi-band raster with named "
+            "bands in GeoTIFF; both read back through ``load_population``. "
+            "``model_setup`` records its choice here so runs inherit the "
+            "format its input rasters were written in."
         ),
     )
 

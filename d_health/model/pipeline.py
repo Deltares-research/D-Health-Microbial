@@ -7,7 +7,7 @@ import numpy as np
 
 from d_health.config.loaders import load_run_config
 from d_health.config.run import RunConfig
-from d_health.io import wrap_like, write_netcdf
+from d_health.io import raster_path, wrap_like, write_raster
 from d_health.model.concentration import calc_pathogen_conc
 from d_health.model.emissions import compute_emissions
 from d_health.model.exposure import calc_dose_for_groups
@@ -103,30 +103,36 @@ def run_model(config: RunConfig, *, inputs: ModelInputs | None = None) -> ModelO
     out_dir = Path(config.output.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     grid = inputs.population  # x/y coords + CRS for wrap_like
+    fmt = config.output.raster_format
     paths: dict[str, Path] = {}
-    paths["emissions"] = write_netcdf(
+    paths["emissions"] = write_raster(
         wrap_like(emissions, grid, name="emissions"),
-        out_dir / "emissions.nc",
+        raster_path(out_dir, "emissions", fmt),
         descriptions=("ecoli_emissions_cfu",),
+        units="CFU",
     )
-    paths["pathogen_conc"] = write_netcdf(
+    paths["pathogen_conc"] = write_raster(
         wrap_like(conc, grid, name="pathogen_conc"),
-        out_dir / "pathogen_conc.nc",
+        raster_path(out_dir, "pathogen_conc", fmt),
         descriptions=("ecoli_per_100ml",),
+        units="CFU/100mL",
     )
-    paths["flood_classes"] = write_netcdf(
+    # 0 = dry is a real class here, not nodata — so no nodata is set.
+    paths["flood_classes"] = write_raster(
         wrap_like(flood_classes.astype(np.int16), grid, name="flood_classes"),
-        out_dir / "flood_classes.nc",
+        raster_path(out_dir, "flood_classes", fmt),
         descriptions=("flood_depth_class",),
     )
-    # Per-group quantities → one netCDF each, stacked along the ``group`` dim
-    # (mirrors the population input layout).
+    # Per-group quantities → one file each, stacked along the ``group`` dim
+    # (netCDF) or one named band per group (GeoTIFF).
+    units_by_label = {"dose": "CFU", "risk": "1", "infected": "people"}
     for label, data in (("dose", doses), ("risk", risks), ("infected", infected)):
         names = list(data.keys())
         stacked = np.stack([data[n] for n in names], axis=0)
-        paths[label] = write_netcdf(
+        paths[label] = write_raster(
             wrap_like(stacked, grid, name=label, group=names),
-            out_dir / f"{label}.nc",
+            raster_path(out_dir, label, fmt),
+            units=units_by_label[label],
         )
 
     if config.output.plots:

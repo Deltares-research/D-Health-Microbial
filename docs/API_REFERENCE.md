@@ -121,8 +121,13 @@ ModelSetupOverrides(
     settings: SettingsConfig = SettingsConfig(),
     reverse_geocode_timeout_s: float = 30.0,
     reverse_geocode_user_agent: str = "d_health/0.1",
+    raster_format: RasterFormat = "netcdf",  # or "geotiff"
 )
 ```
+
+`raster_format` picks the suffix for the population and urban/rural rasters this
+setup writes (`.nc` or `.tif`) and is recorded in `settings.toml` under
+`[output]`, so runs built from the setup inherit it.
 
 ### `write_run_config_from_setup()`
 
@@ -229,14 +234,14 @@ independent — call only the ones you need.
 
 ### `get_population_data()`
 
-WorldPop age/sex rasters, summed into a netCDF with a labelled `group` dimension
-(`children` 0–9, `adults` 10+, `total`).
+WorldPop age/sex rasters, summed into one raster with a labelled `group` dimension
+(`children` 0–9, `adults` 10+, `total`) — or, in GeoTIFF, one band per group.
 
 ```python
 get_population_data(
     country: str,                    # ISO3, case-insensitive
     year: int,
-    output_path: Path | str,         # .tif/.tiff is rewritten to .nc
+    output_path: Path | str,         # suffix picks the format: .nc or .tif
     *,
     clip: Any = None,                # bounds tuple, shapely, GeoJSON, or GeoDataFrame
     cfg: WorldPopConfig = WorldPopConfig(),
@@ -261,7 +266,7 @@ water).
 
 ```python
 get_smod_data(
-    output_path: Path | str,
+    output_path: Path | str,         # suffix picks the format: .nc or .tif
     *,
     clip: Any = None,
     cfg: GHSSmodConfig = GHSSmodConfig(),
@@ -270,6 +275,10 @@ get_smod_data(
 
 Note there is **no country argument** — SMOD is a global product, so you clip it
 by geometry.
+
+Both writers honour the suffix you give them and return that exact path. (They
+used to silently rewrite `.tif` to `.nc`; that coercion is gone, since the suffix
+is now how the output format is selected.)
 
 ```python
 from d_health import get_smod_data
@@ -354,8 +363,9 @@ country_indicators = "data/sur_indicators.toml"
 flood_depth_map = "data/flood_wl03m.tif"
 
 [output]
-out_dir = "outputs/scenario_wl03m"
-plots   = true
+out_dir       = "outputs/scenario_wl03m"
+plots         = true
+raster_format = "netcdf"   # or "geotiff"
 
 # [settings] is entirely optional — every field has a default.
 ```
@@ -365,8 +375,14 @@ plots   = true
 ```python
 ExposureConfig(population: Path, urban_rural: Path, country_indicators: Path)
 EventConfig(flood_depth_map: Path)
-OutputConfig(out_dir: Path, plots: bool = True)
+OutputConfig(out_dir: Path, plots: bool = True,
+             raster_format: RasterFormat = "netcdf")
 ```
+
+`raster_format` selects the on-disk format for **every** output raster — one or
+the other, never both. `model_setup` records its own choice in `settings.toml`,
+which `write_run_config_from_setup` copies here, so a run defaults to the format
+its input rasters were written in.
 
 > **Which raster defines the grid?**
 > The **population** raster does. Its CRS and resolution are the analysis grid;
@@ -543,9 +559,10 @@ print(float(np.nansum(outputs.infected["adults"])))
 print(outputs.coverage.flooded["total"])  # people inside the flooded area
 ```
 
-Written to `output.out_dir`: `emissions.nc`, `pathogen_conc.nc`,
-`flood_classes.nc`, `dose.nc`, `risk.nc`, `infected.nc` (the last three stacked
-along a `group` dimension), plus ONGs when `output.plots` is true.
+Written to `output.out_dir`: `emissions`, `pathogen_conc`, `flood_classes`,
+`dose`, `risk`, `infected` (the last three stacked along a `group` dimension, or
+one named band per group in GeoTIFF), plus ONGs when `output.plots` is true. The
+suffix is `.nc` or `.tif` per `output.raster_format`.
 
 ### `ModelInputs`
 
@@ -612,12 +629,22 @@ flood_on_grid, population_clipped = align_rasters(
 
 ```python
 from d_health.io import (
-    load_raster, load_population, write_netcdf, from_numpy, wrap_like, da_to_meta,
+    load_raster, load_population, write_raster, write_netcdf, write_geotiff,
+    raster_path, RasterFormat, SUFFIXES, from_numpy, wrap_like, da_to_meta,
 )
 
 load_raster(file_path, *, squeeze=True, masked=True) -> xr.DataArray
 load_population(file_path, *, group_names=None) -> xr.DataArray
-write_netcdf(obj, out_path, *, crs=None, descriptions=None, name=None) -> Path
+
+RasterFormat = Literal["netcdf", "geotiff"]
+SUFFIXES = {"netcdf": ".nc", "geotiff": ".tif"}
+raster_path(out_dir, stem, fmt) -> Path
+
+write_raster(obj, out_path, *, descriptions=None, units=None, nodata=None) -> Path
+write_netcdf(obj, out_path, *, crs=None, descriptions=None, name=None,
+             units=None) -> Path
+write_geotiff(da, out_path, *, descriptions=None, units=None, nodata=None) -> Path
+
 from_numpy(values, transform, crs, *, name, group=None, nodata=None) -> xr.DataArray
 wrap_like(values, ref_da, *, name, group=None) -> xr.DataArray
 da_to_meta(da) -> dict
@@ -626,6 +653,28 @@ da_to_meta(da) -> dict
 `load_raster` auto-detects `.tif`/`.tiff` (rioxarray) vs `.nc`/`.nc4`/`.cdf`
 (xarray), converts source nodata to NaN, and reads fully into memory before
 closing the file.
+
+`write_raster` is its write-side mirror: it picks the writer from `out_path`'s
+suffix. Build the path with `raster_path(out_dir, stem, fmt)` — the one place a
+`RasterFormat` becomes a suffix.
+
+Both writers produce files that open as georeferenced layers in QGIS/GDAL.
+`write_netcdf` emits CF-1.8: a `spatial_ref` grid-mapping variable, a
+`grid_mapping` attr on the data variable linking to it, and `standard_name` /
+`units` / `axis` on `x` and `y`.
+
+For a 3-D `(group, y, x)` array:
+
+- **netCDF** keeps the labelled `group` dimension. GDAL exposes it as N bands in
+  group order; the labels appear in dataset metadata as
+  `NETCDF_DIM_group_VALUES={...}`, not as band names.
+- **GeoTIFF** writes one band per group, **named after the group label**. Longer
+  `descriptions` go to a per-band `long_name` tag rather than displacing the
+  labels, because the labels are what `.sel(group=...)` selects on.
+
+`nodata` in `write_geotiff` defaults to `NaN` for float arrays and to *no nodata*
+for integer arrays — `flood_classes` uses `0` for "dry", a real class rather than
+absence of data, so a caller must opt in (as `get_smod_data` does with `0`).
 
 ### Geo helpers
 
