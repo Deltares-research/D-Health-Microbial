@@ -292,14 +292,20 @@ def write_netcdf(
     descriptions: Sequence[str] | None = None,
     name: str | None = None,
     units: str | None = None,
+    nodata: float | None = None,
 ) -> Path:
     """Write a DataArray/Dataset to a compressed, CF-georeferenced netCDF.
 
     The CRS is written via rioxarray (``spatial_ref`` coordinate +
     ``grid_mapping`` attr) so the file round-trips through
     :func:`load_raster` **and** opens as a georeferenced raster in QGIS/GDAL.
-    Data variables are zlib-compressed; float variables get a ``NaN``
-    ``_FillValue``.
+    Data variables are zlib-compressed.
+
+    ``nodata`` becomes the ``_FillValue`` attribute — netCDF's equivalent of a
+    GeoTIFF nodata value, and what ``load_raster`` decodes back to ``NaN``.
+    Omit it and float variables still default to a ``NaN`` ``_FillValue``,
+    while integer variables get none (an integer layer here uses its codes as
+    meaningful classes, so a caller must opt in).
     """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -325,6 +331,11 @@ def write_netcdf(
     ds = ds.rio.write_coordinate_system()
     ds.attrs.setdefault("Conventions", "CF-1.8")
 
+    # The loop below rewrites variable attrs (moving _FillValue into encoding).
+    # When the caller handed us a Dataset we hold *their* object, so copy first
+    # rather than mutating an argument.
+    ds = ds.copy()
+
     encoding = {}
     for var in ds.data_vars:
         enc = {"zlib": True, "complevel": 4}
@@ -335,7 +346,21 @@ def write_netcdf(
         grid_mapping = ds[var].encoding.get("grid_mapping")
         if grid_mapping is not None:
             enc["grid_mapping"] = grid_mapping
-        if np.issubdtype(ds[var].dtype, np.floating):
+
+        # `rio.write_nodata` (used by from_numpy) leaves _FillValue in .attrs,
+        # and xarray refuses to serialise a variable that carries it in both
+        # attrs and encoding. Encoding is where it belongs, so move it.
+        ds[var] = ds[var].copy()
+        attr_fill = ds[var].attrs.pop("_FillValue", None)
+
+        # An explicit nodata wins: write_geotiff takes the same parameter and
+        # write_raster forwards it to whichever backend the suffix picks, so it
+        # has to mean the same thing in both. Cast to the variable's dtype — a
+        # float _FillValue on an int variable is not CF-legal.
+        fill = nodata if nodata is not None else attr_fill
+        if fill is not None:
+            enc["_FillValue"] = ds[var].dtype.type(fill)
+        elif np.issubdtype(ds[var].dtype, np.floating):
             enc["_FillValue"] = np.nan
         encoding[var] = enc
 
@@ -397,23 +422,27 @@ def write_geotiff(
     if nodata is not None:
         da = da.rio.write_nodata(nodata)
 
-    da.rio.to_raster(out_path, compress="deflate", tiled=True)
-
     long_names = tuple(str(d) for d in descriptions) if descriptions else ()
     # Group labels win the band description; without a group dim the lone
     # description names the single band.
     band_names = labels or long_names
+
+    # Validate *before* writing. The band count is knowable from the array, and
+    # checking it after `to_raster` (i.e. from the reopened dataset) leaves a
+    # fully written, partially tagged file on disk next to the exception — in a
+    # pipeline that writes six rasters in sequence, that is a half-finished
+    # output directory that looks complete to anything checking file existence.
+    n_bands = int(da.sizes["band"]) if "band" in da.dims else 1
+    for what, values in (("band name", band_names), ("description", long_names)):
+        if values and len(values) != n_bands:
+            raise ValueError(
+                f"{len(values)} {what}(s) for a {n_bands}-band raster: {values}"
+            )
+
+    da.rio.to_raster(out_path, compress="deflate", tiled=True)
+
     if band_names or long_names:
         with rasterio.open(out_path, "r+") as dst:
-            for what, values in (
-                ("band name", band_names),
-                ("description", long_names),
-            ):
-                if values and len(values) != dst.count:
-                    raise ValueError(
-                        f"{len(values)} {what}(s) for a {dst.count}-band "
-                        f"raster: {values}"
-                    )
             for i, band_name in enumerate(band_names, start=1):
                 dst.set_band_description(i, band_name)
             if labels and long_names:
@@ -437,11 +466,19 @@ def write_raster(
     The write-side mirror of :func:`load_raster`: ``.nc``/``.nc4``/``.cdf`` go
     to :func:`write_netcdf`, ``.tif``/``.tiff`` to :func:`write_geotiff`. Use
     :func:`raster_path` to build the path from a :data:`RasterFormat`.
+
+    Every parameter means the same thing in both formats — ``nodata`` becomes a
+    GeoTIFF nodata value or a netCDF ``_FillValue``. Callers such as
+    ``get_smod_data`` pass the same arguments whichever format is configured,
+    so a parameter honoured by one backend and dropped by the other would make
+    the identical call mean two different things.
     """
     out_path = Path(out_path)
     suffix = out_path.suffix.lower()
     if suffix in _NETCDF_SUFFIXES:
-        return write_netcdf(obj, out_path, descriptions=descriptions, units=units)
+        return write_netcdf(
+            obj, out_path, descriptions=descriptions, units=units, nodata=nodata
+        )
     if suffix in _TIFF_SUFFIXES:
         if isinstance(obj, xr.Dataset):
             obj = _dataset_to_dataarray(obj)

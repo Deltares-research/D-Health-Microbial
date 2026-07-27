@@ -234,6 +234,75 @@ def test_geotiff_explicit_nodata_is_honoured(tmp_path):
         assert src.nodata == 0
 
 
+def test_netcdf_explicit_nodata_is_honoured(tmp_path):
+    """`nodata` must mean the same thing in both formats.
+
+    write_raster exists to hide the format difference, so a parameter it
+    accepts cannot apply to .tif and be discarded for .nc. In practice the
+    package's own callers reach the same place via `from_numpy(nodata=...)`,
+    which writes _FillValue into attrs — but a caller passing a bare
+    DataArray got nothing, silently.
+    """
+    path = write_raster(
+        int_2d(), raster_path(tmp_path, "urban_rural", "netcdf"), nodata=0
+    )
+
+    with xr.open_dataset(path, decode_cf=False) as ds:
+        assert ds["flood_classes"].attrs["_FillValue"] == 0
+
+
+def test_netcdf_nodata_from_the_array_is_preserved(tmp_path):
+    """from_numpy(nodata=...) puts _FillValue in attrs; it must still land.
+
+    xarray refuses to serialise a variable carrying _FillValue in both attrs
+    and encoding, so write_netcdf moves it — this is the path get_smod_data
+    actually takes.
+    """
+    values = (np.arange(16 * 16, dtype=np.uint8) % 3).reshape(16, 16)
+    da = from_numpy(values, TRANSFORM, CRS_UTM, name="urban_rural", nodata=0)
+    path = write_raster(da, raster_path(tmp_path, "urban_rural", "netcdf"))
+
+    with xr.open_dataset(path, decode_cf=False) as ds:
+        assert ds["urban_rural"].attrs["_FillValue"] == 0
+
+
+def test_write_netcdf_does_not_mutate_its_argument(tmp_path):
+    """Moving _FillValue out of attrs must not touch the caller's object."""
+    values = (np.arange(16 * 16, dtype=np.uint8) % 3).reshape(16, 16)
+    da = from_numpy(values, TRANSFORM, CRS_UTM, name="urban_rural", nodata=0)
+
+    write_raster(da, raster_path(tmp_path, "urban_rural", "netcdf"))
+    assert da.attrs.get("_FillValue") == 0, "caller's DataArray was mutated"
+
+    ds = da.to_dataset()
+    write_raster(ds, raster_path(tmp_path, "ur2", "netcdf"))
+    assert (
+        ds["urban_rural"].attrs.get("_FillValue") == 0
+    ), "caller's Dataset was mutated"
+
+
+def test_netcdf_float_nodata_still_defaults_to_nan(tmp_path):
+    """The existing default is unchanged when no nodata is given."""
+    path = write_raster(float_2d(), raster_path(tmp_path, "conc", "netcdf"))
+
+    with xr.open_dataset(path, decode_cf=False) as ds:
+        assert np.isnan(ds["pathogen_conc"].attrs["_FillValue"])
+
+
+def test_write_geotiff_rejects_a_bad_description_count_without_writing(tmp_path):
+    """A count mismatch must not leave a half-tagged file on disk.
+
+    The pipeline writes six rasters in sequence; a partially written output
+    directory looks like a completed run to anything that only checks that
+    files exist.
+    """
+    out = raster_path(tmp_path, "conc", "geotiff")
+    with pytest.raises(ValueError, match="1-band raster"):
+        write_raster(float_2d(), out, descriptions=("a", "b", "c"))
+
+    assert not out.exists(), "a failed write left a file behind"
+
+
 def test_write_raster_rejects_unknown_suffix(tmp_path):
     with pytest.raises(ValueError, match="Unsupported raster suffix"):
         write_raster(float_2d(), tmp_path / "layer.shp")
