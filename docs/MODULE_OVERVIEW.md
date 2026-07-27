@@ -1,8 +1,8 @@
-# D-Health Module Overview
+# D-Health-Microbial Module Overview
 
-## What is D-Health?
+## What is D-Health-Microbial?
 
-**D-Health** (Floods and Health Tool) is a scientific modeling framework that estimates the health impacts of flooding, specifically the risk of *E. coli* infection among populations exposed to flood water.
+**D-Health-Microbial** (Floods and Health Tool) is a scientific modeling framework that estimates the health impacts of flooding, specifically the risk of *E. coli* infection among populations exposed to flood water.
 
 ### Core Purpose
 
@@ -15,7 +15,7 @@ Given a flood event and a region's population distribution, D-Health computes:
 
 ### Why It Matters
 
-Flood-related diseases are a major public health concern, especially in countries with limited sanitation coverage. D-Health bridges water simulation and epidemiology by translating flood depth maps into quantified health risks.
+Flood-related diseases are a major public health concern, especially in countries with limited sanitation coverage. D-Health-Microbial bridges flooding simulation and epidemiology by translating flood depth maps into quantified health risks.
 
 ---
 
@@ -44,7 +44,7 @@ Model Pipeline
 └── Infected: Calculate fraction infected per group
         ↓
 Output Layer
-├── NetCDF files: emissions, concentration, doses, risks, infected
+├── NetCDF files: emissions, concentration, dose, risk, infected
 ├── Geotiff: flood_classes, classified risk
 ├── Plots: per-group statistics, risk histograms, spatial maps
 └── Summaries: total infected population by group
@@ -68,14 +68,14 @@ Output Layer
    - **Emissions**: E. coli load in wastewater based on sanitation indicators
    - **Concentration**: Dilution of pathogen in floodwater
    - **Dose**: Ingestion rate varies by depth and age group
-   - **Risk**: Beta-Poisson dose-response model (from WHO/QMRA literature)
-   - **Infected**: Probability of infection per individual
+   - **Risk**: Probability of infection per individual from Beta-Poisson dose-response model (from WHO/QMRA literature)
+   - **Infected**: Number of infected individuals
 
 #### 4. **Postprocessing (`d_health.postprocessing`)**
-   - Aggregate results by population group
+   - Aggregate results by age group
    - Classify flood depth into risk bands
    - Generate plots and summary statistics
-   - Compute population coverage within flood extent
+   - Compute infected population coverage within flood extent
 
 #### 5. **Geospatial Utilities (`d_health.geo`, `d_health.io`)**
    - Raster alignment and resampling
@@ -116,12 +116,12 @@ Output Layer
 
 ### Required Files
 
-| Input | Format | Description |
-|-------|--------|-------------|
-| `population` | NetCDF or GeoTIFF | Population per cell, labeled with age groups (e.g., `children`, `adults`) |
-| `urban_rural` | NetCDF or GeoTIFF | GHS-SMOD classification: `1`=urban, `2`=rural, `0`=nodata |
-| `country_indicators` | TOML | Per-tier sanitation coverage (%) and GDP per capita |
-| `flood_depth_map` | GeoTIFF | Flood depth in meters, any CRS (auto-aligned) |
+| Input | Format | Description | Downloaded as part of module? |
+|-------|--------|-------------|-------------------------------|
+| `population` | NetCDF or GeoTIFF | Population per cell, labeled with age groups (e.g., `children`, `adults`) | Yes |
+| `urban_rural` | NetCDF or GeoTIFF | GHS-SMOD classification: `1`=urban, `2`=rural, `0`=nodata | Yes |
+| `country_indicators` | TOML | Per-tier sanitation coverage (%) and GDP per capita | Yes |
+| `flood_depth_map` | GeoTIFF | Flood depth in meters, any CRS (auto-aligned) | No |
 
 ### Configuration (TOML)
 
@@ -211,17 +211,17 @@ E. coli load in wastewater is estimated from:
 $$\text{Emissions} = \text{Population} \times \text{E. coli per capita} \times f(\text{sanitation tier})$$
 
 Where sanitation tiers are:
-- **Urban improved** (sewered): Low E. coli (treatment)
+- **Urban improved** (sewer): Low E. coli
 - **Urban unimproved** (septic/pit): Moderate
 - **Rural improved**: Moderate
-- **Rural unimproved**: High (minimal treatment)
+- **Rural unimproved**: High
 
 ### Dose-Response Model (Beta-Poisson)
 
 Infection probability given ingested dose ($d$):
-$$P(\text{infection} | d) = 1 - \left(1 + \frac{d}{N50}\right)^{-\alpha}$$
+$$P(\text{infection} | d) = 1 - \left(1 + \frac{d}{\beta}\right)^{-\alpha}$$
 
-Parameters ($N50$, $\alpha$) are from WHO QMRA guidelines for *E. coli* O157:H7.
+Default parameters ($\alpha$, $\beta$) are for *E. coli* O157:H7 and taken from Teunis PF, Ogden ID, Strachan NJ. Hierarchical dose response of E. coli O157:H7 from human outbreaks incorporating heterogeneity in exposure. Epidemiol Infect. 2008 Jun;136(6):761-70. doi: 10.1017/S095026880700877.
 
 ### Spatial Grid Alignment
 
