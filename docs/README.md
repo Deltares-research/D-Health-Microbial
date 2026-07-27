@@ -165,20 +165,24 @@ Mathematical relationship between ingested pathogen dose and infection probabili
 
 ### Output Files
 
-Everything is netCDF; the pipeline writes no GeoTIFFs and no JSON.
+Every raster is netCDF **or** GeoTIFF, per `output.raster_format` — one or the other,
+never both. The suffix below is `.nc` by default and `.tif` when
+`raster_format = "geotiff"`. The pipeline writes no JSON.
 
 | Name | Type | Content |
 |------|------|---------|
-| `emissions.nc` | NetCDF | E. coli load per cell (CFU per flood event) |
-| `pathogen_conc.nc` | NetCDF | Concentration (CFU per 100 mL; **NaN where dry**) |
-| `dose.nc` | NetCDF | Ingested dose, stacked along a `group` dim (CFU/event) |
-| `risk.nc` | NetCDF | Infection probability, per group (0–1) |
-| `infected.nc` | NetCDF | Infected population, per group (persons) |
-| `flood_classes.nc` | NetCDF | Depth classification (0=dry, 1=wet-but-unexposed, 2..n=bands) |
+| `emissions.<nc\|tif>` | Raster | E. coli load per cell (CFU per flood event) |
+| `pathogen_conc.<nc\|tif>` | Raster | Concentration (CFU per 100 mL; **NaN where dry**) |
+| `dose.<nc\|tif>` | Raster | Ingested dose, per group (CFU/event) |
+| `risk.<nc\|tif>` | Raster | Infection probability, per group (0–1) |
+| `infected.<nc\|tif>` | Raster | Infected population, per group (persons) |
+| `flood_classes.<nc\|tif>` | Raster | Depth classification (0=dry, 1=wet-but-unexposed, 2..n=bands) |
 | `*.png` | PNG | Plots and maps (only when `output.plots = true`) |
 
-Per-group quantities are one variable stacked along `group` — select with
-`ds["risk"].sel(group="adults")`, not `ds["risk_adults"]`.
+Per-group quantities are one variable stacked along `group` in netCDF — select with
+`ds["risk"].sel(group="adults")`, not `ds["risk_adults"]`. In GeoTIFF they become one
+band per group, each band named after its group label; `load_population` reads either
+layout back to the same labelled `group` dim.
 
 Summary statistics (`totals`, `coverage`, `risk_class_counts`) are **returned on
 the `ModelOutputs` object**, not written to disk.

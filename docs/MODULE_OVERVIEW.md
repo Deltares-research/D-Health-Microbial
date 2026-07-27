@@ -150,10 +150,14 @@ plots = true
 
 ## Key Data Outputs
 
-### Quantitative Results (NetCDF)
+### Quantitative Results (NetCDF or GeoTIFF)
 
-Everything is netCDF. Per-group quantities are **one variable stacked along a
-`group` dimension**, not one file (or variable) per group.
+Every raster is netCDF *or* GeoTIFF, per `output.raster_format` — one or the other,
+never both. The `.nc` names below become `.tif` under `raster_format = "geotiff"`.
+
+Per-group quantities are **one variable stacked along a `group` dimension**, not one
+file (or variable) per group. In GeoTIFF they are one band per group, each named after
+its group label.
 
 | Output | Unit | Description |
 |--------|------|-------------|

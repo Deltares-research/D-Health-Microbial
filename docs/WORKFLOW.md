@@ -177,7 +177,7 @@ Postprocessing:
 ├─ Compute flood classes (0=dry, 1..n=depth bands)
 ├─ Classify risk per group
 ├─ Generate plots (only when output.plots = true)
-└─ Write NetCDF + PNG (no GeoTIFF, no JSON)
+└─ Write rasters (.nc or .tif per output.raster_format) + PNG (no JSON)
     ↓
 Result: ModelOutputs  (in memory — summary stats are NOT written to disk)
 ├─ emissions, pathogen_conc (np.ndarray)
@@ -211,15 +211,19 @@ d-health run -c data/runs/paramaribo_wl3m/config.toml
 
 ## 4. Output Files
 
-### Quantitative Results (NetCDF)
+### Quantitative Results (NetCDF or GeoTIFF)
 
-Located in `output.out_dir` from the config. **Everything is netCDF — the
-pipeline writes no GeoTIFFs.**
+Located in `output.out_dir` from the config. **Every raster is netCDF *or* GeoTIFF,
+per `output.raster_format` — one or the other, never both.** The examples below use
+the `.nc` default; with `raster_format = "geotiff"` the same files are written as
+`.tif`.
 
 Per-group quantities are stacked along a `group` dimension, so `risk.nc` holds
 one `risk` variable with `group = [adults, children]`, *not* separate
 `risk_adults` / `risk_children` variables. Select with
-`ds["risk"].sel(group="adults")`.
+`ds["risk"].sel(group="adults")`. In GeoTIFF the same layers become one band per
+group, each **named after its group label**, which `load_population` reads back to
+the identical labelled `group` dim.
 
 ```
 outputs/run/scenario_wl3m/
