@@ -13,3 +13,14 @@ extend-ignore-words-re = [
     # that way. Without this, the hook re-breaks them on every commit.
     "\\barange\\b",
 ]
+
+# `PNGs`. typos splits the plural into `PN` + `Gs` and "corrects" the leading
+# `PN` to `ON`, yielding "ONGs" — it had already done so in docs/API_REFERENCE.md
+# before anyone noticed. Singular `PNG` is unaffected; only the plural trips it.
+# Same failure mode as `arange` above.
+#
+# This has to be an *identifier* exclusion, not an `extend-ignore-words-re`
+# entry: the word typos reports is `PN`, not `PNGs`, so a word-level pattern
+# never matches — and ignoring `PN` outright would be far too broad.
+[default.extend-identifiers]
+PNGs = "PNGs"
