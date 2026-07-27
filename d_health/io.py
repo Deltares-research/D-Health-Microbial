@@ -249,6 +249,24 @@ def from_numpy(
     return da
 
 
+def _apply_descriptions(da: xr.DataArray, descriptions: Sequence[str]) -> xr.DataArray:
+    """Attach ``descriptions`` to ``da`` in a CF-legal way.
+
+    CF requires ``long_name`` to be a single string, so only a lone description
+    becomes one. Several descriptions (one per ``group`` layer) go to a joined
+    ``group_descriptions`` attr instead — the short labels already live in the
+    ``group`` coordinate. GeoTIFF band descriptions take the raw sequence, not
+    this attr, so nothing is lost.
+    """
+    labels = tuple(str(d) for d in descriptions)
+    da = da.copy()
+    if len(labels) == 1:
+        da.attrs["long_name"] = labels[0]
+    else:
+        da.attrs["group_descriptions"] = ", ".join(labels)
+    return da
+
+
 def write_netcdf(
     obj: xr.DataArray | xr.Dataset,
     out_path: Path | str,
@@ -256,13 +274,15 @@ def write_netcdf(
     crs=None,
     descriptions: Sequence[str] | None = None,
     name: str | None = None,
+    units: str | None = None,
 ) -> Path:
     """Write a DataArray/Dataset to a compressed, CF-georeferenced netCDF.
 
     The CRS is written via rioxarray (``spatial_ref`` coordinate +
     ``grid_mapping`` attr) so the file round-trips through
-    :func:`load_raster` and opens in QGIS/GDAL. Data variables are
-    zlib-compressed; float variables get a ``NaN`` ``_FillValue``.
+    :func:`load_raster` **and** opens as a georeferenced raster in QGIS/GDAL.
+    Data variables are zlib-compressed; float variables get a ``NaN``
+    ``_FillValue``.
     """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -273,20 +293,40 @@ def write_netcdf(
         elif obj.name is None:
             obj = obj.rename("data")
         if descriptions is not None:
-            obj.attrs["long_name"] = tuple(descriptions)
+            obj = _apply_descriptions(obj, descriptions)
+        if units is not None:
+            obj = obj.copy()
+            obj.attrs["units"] = units
         ds = obj.to_dataset()
     else:
         ds = obj
 
     if crs is not None:
         ds = ds.rio.write_crs(crs)
+    # CF axis attrs (standard_name / units / axis) on x and y — GDAL's netCDF
+    # driver uses these to identify the axes and build a geotransform.
+    ds = ds.rio.write_coordinate_system()
+    ds.attrs.setdefault("Conventions", "CF-1.8")
 
     encoding = {}
     for var in ds.data_vars:
         enc = {"zlib": True, "complevel": 4}
+        # `to_netcdf(encoding=...)` REPLACES a variable's .encoding rather than
+        # merging into it, so the grid_mapping rioxarray stored there has to be
+        # carried over by hand. Without it the CRS is written but never linked
+        # to the data variable, and the file opens ungeoreferenced in GIS.
+        grid_mapping = ds[var].encoding.get("grid_mapping")
+        if grid_mapping is not None:
+            enc["grid_mapping"] = grid_mapping
         if np.issubdtype(ds[var].dtype, np.floating):
             enc["_FillValue"] = np.nan
         encoding[var] = enc
+
+    # CF forbids _FillValue on coordinate variables; xarray adds one to float
+    # coords unless explicitly told not to.
+    for coord in ("x", "y", "group"):
+        if coord in ds.coords:
+            encoding[coord] = {"_FillValue": None}
 
     ds.to_netcdf(out_path, engine="netcdf4", encoding=encoding)
 
