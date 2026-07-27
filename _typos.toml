@@ -8,4 +8,8 @@ extend-ignore-words-re = [
     # (`ascic_2020`), documented in config/preprocessing.py. Not "ascii".
     "(?i)\\bascic\\b",
     "(?i)\\bascic_",
+    # `np.arange`. typos "corrects" this to `arrange`, which is not a numpy
+    # function — commit 3880666 silently broke a notebook and a docs snippet
+    # that way. Without this, the hook re-breaks them on every commit.
+    "\\barange\\b",
 ]
