@@ -142,7 +142,7 @@ A geographic bounding box (latitude/longitude) that defines your study region. S
 One-time preparation of exposure data (population, urban/rural, country indicators) for a region. Output: `settings.toml` (reusable).
 
 ### Run Phase
-Model execution for a specific flood scenario. Input: `settings.toml` + flood map. Output: infection risk and infected population counts.
+Model execution for a specific flood scenario. Input: `settings.toml` + flood map. Output: Expected infected population; calculated as infection probability × population. Values may be fractional and are not observed cases.
 
 ### Population Groups
 Categories of people with different exposure behaviors (e.g., adults vs. children; wading vs. swimming). Each group has depth-dependent water intake rates.
@@ -161,7 +161,7 @@ Mathematical relationship between ingested pathogen dose and infection probabili
 | Population | NetCDF or GeoTIFF | WorldPop (auto-downloaded) | persons/cell |
 | Urban/Rural | NetCDF or GeoTIFF | GHS-SMOD (auto-downloaded) | classification (1=urban, 2=rural) |
 | Country Indicators | TOML | World Bank (auto-downloaded) | sanitation %, GDP |
-| Flood Depth Map | GeoTIFF | User-provided | meters |
+| Flood Depth Map | GeoTIFF or NetCDF | User-provided | metres flood depth; >0 flooded, 0/negative/NaN dry |
 
 ### Output Files
 
@@ -174,8 +174,8 @@ never both. The suffix below is `.nc` by default and `.tif` when
 | `emissions.<nc\|tif>` | Raster | E. coli load per cell (CFU per flood event) |
 | `pathogen_conc.<nc\|tif>` | Raster | Concentration (CFU per 100 mL; **NaN where dry**) |
 | `dose.<nc\|tif>` | Raster | Ingested dose, per group (CFU/event) |
-| `risk.<nc\|tif>` | Raster | Infection probability, per group (0–1) |
-| `infected.<nc\|tif>` | Raster | Infected population, per group (persons) |
+| `risk.<nc\|tif>` | Raster | Expected infected population, per group (0-1); calculated as risk × population |
+| `infected.<nc\|tif>` | Raster | Expected Infected population, per group (persons) |
 | `flood_classes.<nc\|tif>` | Raster | Depth classification (0=dry, 1=wet-but-unexposed, 2..n=bands) |
 | `*.png` | PNG | Plots and maps (only when `output.plots = true`) |
 

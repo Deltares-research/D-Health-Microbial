@@ -2,16 +2,16 @@
 
 ## What is D-Health-Microbial?
 
-**D-Health-Microbial** (Floods and Health Tool) is a scientific modeling framework that estimates the health impacts of flooding, specifically the risk of *E. coli* infection among populations exposed to flood water.
+**D-Health-Microbial** (Floods and Health Tool) is a scientific modeling framework that estimates microbial infection risk for humans that are exposed to floodwater. The current default implementation uses *E. coli* as the reference organism.
 
 ### Core Purpose
 
 Given a flood event and a region's population distribution, D-Health computes:
-- **Pathogen concentration** in flood waters (based on emissions from sanitation infrastructure)
+- **Pathogen concentration** in floodwater (based on emissions from sanitation infrastructure)
 - **Population exposure** (who is flooded at what depth)
 - **Dose ingested** by individuals (water intake varies by age and water depth)
 - **Infection risk** per individual (using dose-response models)
-- **Infected population** counts and spatial distribution
+- **Expected infected population** and spatial distribution
 
 ### Why It Matters
 
@@ -36,18 +36,18 @@ Preprocessing Layer
 └── Load country indicators
         ↓
 Model Pipeline
-├── Emissions: Compute E. coli load in flood water
+├── Emissions: Compute E. coli load in floodwater
 ├── Concentration: Calculate pathogen concentration per cell
 ├── Exposure: Assign water depth to population groups
 ├── Dose: Estimate ingested water volume per individual
-├── Risk: Apply dose-response model (beta-poisson)
-└── Infected: Calculate fraction infected per group
+├── Risk: Apply dose-response model (Beta-Poisson)
+└── Expected infections: Calculate infection probability × exposed population per group
         ↓
 Output Layer
 ├── NetCDF files: emissions, concentration, dose, risk, infected
 ├── Geotiff: flood_classes, classified risk
 ├── Plots: per-group statistics, risk histograms, spatial maps
-└── Summaries: total infected population by group
+└── Summaries: total expected infected population by group
 ```
 
 ### Key Components
@@ -69,13 +69,13 @@ Output Layer
    - **Concentration**: Dilution of pathogen in floodwater
    - **Dose**: Ingestion rate varies by depth and age group
    - **Risk**: Probability of infection per individual from Beta-Poisson dose-response model (from WHO/QMRA literature)
-   - **Infected**: Number of infected individuals
+   - **Infected**: Number of expected infected individuals
 
 #### 4. **Postprocessing (`d_health.postprocessing`)**
    - Aggregate results by age group, and over polygons (`zonal_sums`)
    - Classify flood depth into risk bands
    - Generate plots and summary statistics
-   - Compute infected population coverage within flood extent
+   - Compute expected infected population coverage within flood extent
 
 #### 5. **Geospatial Utilities (`d_health.geo`, `d_health.io`)**
    - Raster alignment and resampling
@@ -100,9 +100,9 @@ Output Layer
    - The **settings.toml** from Stage 1
 2. Model computes:
    - Emissions from sanitation coverage
-   - Pathogen concentration in flood water
+   - Pathogen concentration in floodwater
    - Dose per population group
-   - Infection risk and counts
+   - Infection probability and expected infections
 3. Output: NetCDF files, classified maps, plots, summary statistics
 
 ### Stage 3: Analyze
@@ -121,7 +121,7 @@ Output Layer
 | `population` | NetCDF or GeoTIFF | Population per cell, labeled with age groups (e.g., `children`, `adults`) | Yes |
 | `urban_rural` | NetCDF or GeoTIFF | GHS-SMOD classification: `1`=urban, `2`=rural, `0`=nodata | Yes |
 | `country_indicators` | TOML | Per-tier sanitation coverage (%) and GDP per capita | Yes |
-| `flood_depth_map` | GeoTIFF | Flood depth in meters, any CRS (auto-aligned) | No |
+| `flood_depth_map` | GeoTIFF or NetCDF | Flood depth in metres; values > 0 are flooded, 0/negative/NaN are dry; any CRS (auto-aligned) | No |
 
 ### Configuration (TOML)
 
@@ -167,14 +167,14 @@ sanitation_reductions = [
     { name = "None", urban_reduction_factor = 1.0, rural_reduction_factor = 1.0 },
 ]
 ```
-Key parameters are detailed below. Those marked (*editable*) may de varied as part of scenario analysis. We do not recommend editing of other parameters.
+Key parameters are detailed below. Those marked (*editable*) may be varied as part of scenario analysis. We do not recommend editing of other parameters.
 - [exposure]: locations of downloaded source files
 - [settings]: "event_in_hours" is used if any of the depth_thresholds in [[settings.population_groups]] use the unit 'ml/event' (*editable*)
 - [settings.pathogen]: "selected" is the pathogen of interest. Currently "E.coli" is the only option
-- [settings.pathogen.pathogens."E.coli"]: alpha and beta values used for the beta-poisson dose-response model (*editable*)
+- [settings.pathogen.pathogens."E.coli"]: alpha and beta values used for the Beta-Poisson dose-response model (*editable*)
 - [[settings.population_groups]]: volume of water ingested by adults/children while wading/swimming (*editable*)
 - [settings.emissions]:
-   - "per_capita_ecoli_rate" is the amount of ecoli emitted by 1 person (CFU/100ml) (*editable*)
+   - "per_capita_ecoli_rate" is the amount of E.coli emitted by 1 person (CFU/person/day) (*editable*)
    - "sanitation_reductions" is the fraction of pathogen remaining after sanitation measures
 
 **config.toml** (one per run/scenario):
@@ -253,18 +253,82 @@ These are defaults; they can be customized in configuration.
 
 ## Methodological Details
 
+### Pathogen representation and parameterisation
+
+The model is structured to calculate infection risk for a selected microbial reference organism. In the current default configuration, the selected organism is `E.coli`.
+
+The model distinguishes between:
+- the microbial load emitted into floodwater;
+- the resulting floodwater concentration;
+- the ingested dose during one representative exposure interaction;
+- the probability of infection based on a dose-response relation.
+
+The default pathogen parameterisation is:
+- selected organism: `E.coli`;
+- dose-response model: Beta-Poisson;
+- default parameters: alpha = 0.373, beta = 39.71;
+- source: Teunis et al. (2008), for *E. coli* O157:H7.
+
+If generic *E. coli* emissions are used as an indicator of faecal contamination rather than as a pathogen-specific input, risk results should be interpreted as relative or indicator-based microbial risk, not as observed clinical *E. coli* O157:H7 infections.
+
 ### Sanitation-Based Emissions
 
-E. coli load in wastewater is estimated from:
+E. coli load is estimated from population density, country-level sanitation coverage, and sanitation-specific retained-emission factors:
 $$\text{Emissions} = \text{Population} \times \text{E. coli per capita} \times f(\text{sanitation tier})$$
 
-Where sanitation tiers are:
-- **Urban improved** (sewer): Low E. coli
-- **Urban unimproved** (septic/pit): Moderate
-- **Rural improved**: Moderate
-- **Rural unimproved**: High
+The model does not assign a sanitation type to each individual grid cell. Instead, it uses country-level sanitation coverage fractions and applies them separately to urban and rural cells. This results in one effective retained-emission factor for urban cells and one for rural cells.
+
+The configured sanitation retained-emission factors are:
+
+| Sanitation tier | Retained-emission factor |  | Interpretation |
+|---|---:|---:|---|
+| Safe | 0.10 | 10% of the baseline E. coli load remains |
+| Advanced | 0.25 | 25% of the baseline E. coli load remains |
+| Basic | 0.70 | 70% remains in urban cells |
+| None | 1.00 | 1.00 | 100% of the baseline E. coli load remains |
+
+
+The resulting emissions represent a screening-level estimate of local microbial load entering floodwater. The model does not explicitly simulate sewer-network routing, local sanitation infrastructure failure, wastewater transport, die-off, settling, resuspension, or hydrodynamic mixing between cells unless these processes are already represented in the input assumptions.
+
+The model does not know the exact sanitation type of each grid cell. Instead, it applies country-level sanitation coverage fractions separately to urban and rural cells, resulting in one effective retained-emission factor for urban cells and one for rural cells.
+
+Concentration is calculated as local cell dilution only. The model does not simulate hydrodynamic transport, mixing between cells, die-off, settling, resuspension, or sewer-network routing unless these are already represented in the input assumptions.
+
+### Exposure Behaviour and Ingested Dose
+
+Exposure is estimated separately for each population group, for example adults and children. Each group has depth-dependent exposure behaviours that define when contact with floodwater is assumed to occur and how much floodwater is ingested during that contact.
+
+The default population groups and exposure behaviours are:
+
+| Group | Behaviour | Minimum flood depth | Ingestion rate |
+|---|---:|---:|---:|
+| Adults | Wading | 0.10 m | 10 mL/h |
+| Adults | Swimming | 1.50 m | 30 mL/h |
+| Children | Wading | 0.10 m | 30 mL/h |
+| Children | Swimming | 0.50 m | 50 mL/h |
+
+The model uses the flood depth in each grid cell to determine which exposure behaviour applies. If the flood depth is below the minimum threshold for a population group, no ingestion dose is calculated for that group in that cell. If the flood depth exceeds a threshold, the corresponding ingestion rate is used.
+
+In the default configuration, one modelled flood event represents one day of flooding. During this event, exposed individuals are assumed to have one representative 1-hour contact interaction with floodwater. Therefore, ingestion rates given in `mL/h` are interpreted as the ingested volume during this representative exposure interaction.
+
+For each population group \(g\) and grid cell \(i\), the ingested dose is calculated as:
+
+$$
+D_{g,i} = C_i \times \frac{I_{g,i}}{100}
+$$
+
+where:
+
+- \(D_{g,i}\) = ingested dose for population group \(g\) in cell \(i\) [CFU/event interaction];
+- \(C_i\) = pathogen concentration in floodwater in cell \(i\) [CFU/100 mL];
+- \(I_{g,i}\) = ingested floodwater volume for population group \(g\) in cell \(i\) [mL/event interaction];
+- \(100\) converts the ingested volume from mL to units of 100 mL.
+
+The resulting dose is then used as input for the dose-response model.
 
 ### Dose-Response Model (Beta-Poisson)
+
+In the default configuration, one modelled flood event represents one day of flooding. During that event, exposed individuals are assumed to have one representative 1-hour contact interaction with floodwater. Therefore, ingestion rates given in mL/h are interpreted as the ingested volume during this representative 1-hour interaction.
 
 Infection probability given ingested dose ($d$):
 $$P(\text{infection} | d) = 1 - \left(1 + \frac{d}{\beta}\right)^{-\alpha}$$
@@ -273,9 +337,47 @@ Default parameters ($\alpha$, $\beta$) are for *E. coli* O157:H7 and taken from 
 
 ### Spatial Grid Alignment
 
-All rasters are resampled to match the **flood map resolution** using:
-- Population, urban/rural: nearest-neighbor (preserve categories)
-- Outputs: same grid as flood map
+All rasters are aligned to the population raster grid. Flood depths are area-averaged onto the population grid; urban/rural classes are nearest-neighbour resampled. Outputs are written on the population grid clipped to the common overlap.
+
+### Model Units and Equations
+For each cell i:
+
+1. Emissions
+E_i = P_total,i × r_Ecoli × S_i × W_GDP
+
+where:
+E_i = E. coli load in cell i [CFU/event]
+P_total,i = total population in cell i [persons/cell]
+r_Ecoli = baseline per-capita emitted load [CFU/person/event]
+S_i = sanitation retained-emission factor [-]
+W_GDP = GDP-based emission weight [-]
+
+2. Floodwater concentration
+C_i = E_i / (A_i × h_i × 10000), for h_i > 0
+C_i = NaN, for h_i ≤ 0 or nodata
+
+where:
+C_i = concentration [CFU/100 mL]
+A_i = cell area [m²]
+h_i = flood depth [m]
+10000 = number of 100 mL units per m³
+
+3. Ingested dose for group g
+I_g,i = depth-dependent ingested water volume [mL/event]
+D_g,i = C_i × I_g,i / 100
+
+where:
+D_g,i = ingested dose [CFU/event]
+
+4. Infection probability
+R_g,i = 1 - (1 + D_g,i / beta)^(-alpha)
+
+5. Expected infected population
+N_g,i = R_g,i × P_g,i
+
+where:
+N_g,i = expected infections [persons]
+P_g,i = population of group g in cell i [persons/cell]
 
 ---
 
