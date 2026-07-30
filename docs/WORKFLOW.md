@@ -81,7 +81,7 @@ Specify which flood event to model and where to save outputs.
 Starting from: settings.toml (from Setup Phase)
     ↓
 User provides:
-├─ Flood depth map (GeoTIFF)
+├─ Flood depth map (GeoTIFF or NetCDF)
 ├─ Output directory
 └─ Optional: Custom population groups, output settings
     ↓
@@ -127,7 +127,7 @@ numbers, not a comma-separated string.)
 ## 3. Modeling Phase: Execute the Pipeline
 
 ### Purpose
-Load inputs, compute emissions → concentration → dose → risk → infection counts.
+Load inputs, compute emissions → concentration → dose → infection probability → expected infections
 
 ### Workflow
 
@@ -196,8 +196,8 @@ from d_health import run_model_from_toml
 # The parameter is `path` — positional is simplest.
 result = run_model_from_toml("data/runs/paramaribo_wl3m/config.toml")
 
-print(f"Total infected adults: {result.totals['infected_adults']:.0f}")
-print(f"Total infected children: {result.totals['infected_children']:.0f}")
+print(f"Expected infected adults: {result.totals['infected_adults']:.0f}")
+print(f"Expected infected children: {result.totals['infected_children']:.0f}")
 print(f"Output directory: {result.paths['emissions'].parent}")
 ```
 
@@ -430,9 +430,9 @@ print(f"Config saved: {config_path}")
 
 # ========== MODEL PHASE (Once per scenario) ==========
 result = run_model_from_toml(config_path)
-print(f"Adults infected: {result.totals['infected_adults']:.0f}")
-print(f"Children infected: {result.totals['infected_children']:.0f}")
-print(f"Total: {sum(result.totals.values()):.0f}")
+print(f"Expected_Adults infected: {result.totals['infected_adults']:.0f}")
+print(f"Expected_Children infected: {result.totals['infected_children']:.0f}")
+print(f"Expected Total Infected: {sum(result.totals.values()):.0f}")
 
 # ========== ANALYSIS PHASE ==========
 # Coverage is on the result object — the pipeline writes no JSON.
