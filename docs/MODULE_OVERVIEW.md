@@ -285,7 +285,7 @@ The configured sanitation retained-emission factors are:
 | Safe | 0.10 | 10% of the baseline E. coli load remains |
 | Advanced | 0.25 | 25% of the baseline E. coli load remains |
 | Basic | 0.70 | 70% remains in urban cells |
-| None | 1.00 | 1.00 | 100% of the baseline E. coli load remains |
+| None | 1.00 | 100% of the baseline E. coli load remains |
 
 
 The resulting emissions represent a screening-level estimate of local microbial load entering floodwater. The model does not explicitly simulate sewer-network routing, local sanitation infrastructure failure, wastewater transport, die-off, settling, resuspension, or hydrodynamic mixing between cells unless these processes are already represented in the input assumptions.
