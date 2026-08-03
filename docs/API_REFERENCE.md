@@ -698,7 +698,7 @@ from d_health.postprocessing import (
     compute_flood_classes, derive_flood_class_edges, flood_class_labels,
     flooded_dry_stats, log_coverage, CoverageBreakdown,
     bin_population_by_risk, DEFAULT_RISK_EDGES,
-    per_group_totals,
+    per_group_totals, zonal_sums,
     plot_raster, plot_per_group, plot_flood_classes, plot_risk_class_histogram,
 )
 ```
@@ -709,6 +709,7 @@ from d_health.postprocessing import (
 | `flooded_dry_stats(flood, population, groups, emissions_cfg, *, flood_classes=None)` | → `CoverageBreakdown` (population flooded vs dry, and per class) |
 | `bin_population_by_risk(risks, population, groups, *, edges=DEFAULT_RISK_EDGES)` | Population histogram over risk bins, per group |
 | `per_group_totals(infected)` | `{"infected_<group>": float}`, NaN-safe |
+| `zonal_sums(arrays, meta, shapes, *, all_touched=False)` | `{zone_id: {name: total}}`, NaN-safe sums over polygons |
 | `plot_raster(data, *, cmap, title, save_path=None, ...)` | Single raster PNG |
 | `plot_per_group(arrays, *, label, out_dir, ...)` | One PNG per group |
 
@@ -716,6 +717,12 @@ from d_health.postprocessing import (
 
 Note `bin_population_by_risk` skips NaN risks, so unexposed (dry-cell) population
 does not appear in the histogram at all.
+
+`zonal_sums` takes `(geometry, zone_id)` pairs in rasterio's shape convention,
+with geometries in the CRS of `meta` and non-negative integer ids — it never
+sees a GeoDataFrame, so `geopandas` stays out of the dependency set. Sum
+extensive quantities only (people, infections); for an area-mean risk, divide
+the infected total by the exposed-population total rather than summing risk.
 
 ---
 
