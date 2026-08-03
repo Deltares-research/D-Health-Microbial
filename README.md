@@ -158,7 +158,7 @@ Written to `output.out_dir`. One raster format or the other, never both; no JSON
 | `pathogen_conc.nc` | Concentration (CFU per 100 mL; NaN where dry) |
 | `flood_classes.nc` | `0` dry, `1` wet but below every threshold, `2..n` activity bands |
 | `dose.nc`, `risk.nc`, `infected.nc` | Per group, stacked along `group` |
-| `*.png` | Maps (`emissions.png`, `pathogen_conc.png`, flood/depth and per-group maps) and `risk_histogram.png` (only when `output.plots = true`) |
+| `*.png` | Maps and the risk histogram (only when `output.plots = true`) |
 
 Summary statistics (`totals`, `coverage`, `risk_class_counts`) are returned on the
 `ModelOutputs` object — they are **not** written to disk.
