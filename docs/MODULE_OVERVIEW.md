@@ -167,6 +167,14 @@ sanitation_reductions = [
     { name = "None", urban_reduction_factor = 1.0, rural_reduction_factor = 1.0 },
 ]
 ```
+Key parameters are detailed below. Those marked (*editable*) may de varied as part of scenario analysis. We do not recommend editing of other parameters.
+- [exposure]: locations of downloaded source files
+- [settings]: "event_in_hours" is used if any of the depth_thresholds in [[settings.population_groups]] use the unit 'ml/event' (*editable*)
+- [settings.pathogen]: "selected" is the pathogen of interest. Currently "E.coli" is the only option
+- [settings.pathogen.pathogens."E.coli"]: alpha and beta values used for the beta-poisson dose-response model (*editable*)
+- [[settings.population_groups]]: volume of water ingested by adults/children while wading/swimming (*editable*)
+- [settings.emissions]:
+   - "per_capita_ecoli_rate" is the amount of ecoli emitted by 1 person (CFU/100ml) (*editable*)
 Key parameters are detailed below. Those marked (*editable*) may be varied as part of scenario analysis. We do not recommend editing of other parameters.
 - [exposure]: locations of downloaded source files
 - [settings]: "event_in_hours" is used if any of the depth_thresholds in [[settings.population_groups]] use the unit 'ml/event' (*editable*)
@@ -230,6 +238,7 @@ no `totals.json` / `coverage.json` files.
 | Output | Content |
 |--------|---------|
 | `emissions.png` | Emissions map |
+| `pathogen_conc.png` | Pathogen concentration map |
 | `flood_classes.png` | Map of flood depth classes |
 | `risk_histogram.png` | One chart; each group is a bar series |
 | `dose_<group>.png`, `risk_<group>.png`, `infected_<group>.png` | One map per group, per quantity |

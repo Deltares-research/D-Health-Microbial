@@ -173,6 +173,7 @@ outputs/run_wl3m/
 ├── infected.nc                  ← Expected infected persons, per group
 │
 ├── emissions.png                ← (only when output.plots = true)
+├── pathogen_conc.png            ← Pathogen concentration map
 ├── flood_classes.png
 ├── risk_histogram.png           ← One chart, all groups as bar series
 ├── dose_<group>.png             ← e.g. dose_adults.png, dose_children.png

@@ -279,6 +279,7 @@ Only when `output.plots = true`.
 ```
 outputs/run/scenario_wl3m/
 ├── emissions.png            ← Emissions map
+├── pathogen_conc.png        ← Pathogen concentration map
 ├── flood_classes.png        ← Depth-class map
 ├── risk_histogram.png       ← ONE chart; groups appear as bar series
 ├── dose_adults.png          ← One map per group, per quantity
