@@ -386,10 +386,6 @@ where:
 3. Ingested dose for population group $g$
 
 $$
-I_{g,i} = \text{depth-dependent ingested water volume}
-$$
-
-$$
 D_{g,i} = C_i \times \frac{I_{g,i}}{100}
 $$
 
