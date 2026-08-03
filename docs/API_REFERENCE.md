@@ -561,7 +561,10 @@ print(outputs.coverage.flooded["total"])  # people inside the flooded area
 
 Written to `output.out_dir`: `emissions`, `pathogen_conc`, `flood_classes`,
 `dose`, `risk`, `infected` (the last three stacked along a `group` dimension, or
-one named band per group in GeoTIFF), plus ONGs when `output.plots` is true. The
+one named band per group in GeoTIFF), plus PNGs (`emissions.png`,
+`pathogen_conc.png`, `flood_classes.png`, `risk_histogram.png`, and per-group
+`dose_<group>.png` / `risk_<group>.png` / `infected_<group>.png`) when
+`output.plots` is true. The
 suffix is `.nc` or `.tif` per `output.raster_format`.
 
 ### `ModelInputs`

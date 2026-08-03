@@ -226,6 +226,7 @@ no `totals.json` / `coverage.json` files.
 | Output | Content |
 |--------|---------|
 | `emissions.png` | Emissions map |
+| `pathogen_conc.png` | Pathogen concentration map |
 | `flood_classes.png` | Map of flood depth classes |
 | `risk_histogram.png` | One chart; each group is a bar series |
 | `dose_<group>.png`, `risk_<group>.png`, `infected_<group>.png` | One map per group, per quantity |

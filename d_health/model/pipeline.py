@@ -142,6 +142,12 @@ def run_model(config: RunConfig, *, inputs: ModelInputs | None = None) -> ModelO
             title="E. coli emissions (CFU)",
             save_path=out_dir / "emissions.png",
         )
+        plot_raster(
+            conc,
+            cmap="viridis",
+            title="E. coli concentration (CFU/100mL)",
+            save_path=out_dir / "pathogen_conc.png",
+        )
         paths.update(plot_per_group(doses, label="dose", out_dir=out_dir))
         paths.update(plot_per_group(risks, label="risk", out_dir=out_dir))
         paths.update(plot_per_group(infected, label="infected", out_dir=out_dir))
