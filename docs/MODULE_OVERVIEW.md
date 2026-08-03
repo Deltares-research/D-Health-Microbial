@@ -349,7 +349,7 @@ Default parameters ($\alpha$, $\beta$) are for *E. coli* O157:H7 and taken from 
 All rasters are aligned to the population raster grid. Flood depths are area-averaged onto the population grid; urban/rural classes are nearest-neighbour resampled. Outputs are written on the population grid clipped to the common overlap.
 
 ### Model Units and Equations
-```markdown
+
 For each cell $i$:
 
 1. Emissions
@@ -420,49 +420,6 @@ where:
 
 - $N_{g,i}$ = expected number of infections in population group $g$ in cell $i$ [persons];
 - $P_{g,i}$ = population of group $g$ in cell $i$ [persons/cell].
-```
-
-
-For each cell i:
-
-1. Emissions
-E_i = P_total,i × r_Ecoli × S_i × W_GDP
-
-where:
-E_i = E. coli load in cell i [CFU/event]
-P_total,i = total population in cell i [persons/cell]
-r_Ecoli = baseline per-capita emitted load [CFU/person/event]
-S_i = sanitation retained-emission factor [-]
-W_GDP = GDP-based emission weight [-]
-
-2. Floodwater concentration
-C_i = E_i / (A_i × h_i × 10000), for h_i > 0
-C_i = NaN, for h_i ≤ 0 or nodata
-
-where:
-C_i = concentration [CFU/100 mL]
-A_i = cell area [m²]
-h_i = flood depth [m]
-10000 = number of 100 mL units per m³
-
-3. Ingested dose for group g
-I_g,i = depth-dependent ingested water volume [mL/event]
-D_g,i = C_i × I_g,i / 100
-
-where:
-D_g,i = ingested dose [CFU/event]
-
-4. Infection probability
-R_g,i = 1 - (1 + D_g,i / beta)^(-alpha)
-
-5. Expected infected population
-N_g,i = R_g,i × P_g,i
-
-where:
-N_g,i = expected infections [persons]
-P_g,i = population of group g in cell i [persons/cell]
-
----
 
 ## Design Principles
 
