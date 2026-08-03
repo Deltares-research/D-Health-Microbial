@@ -289,8 +289,8 @@ The model does not assign a sanitation type to each individual grid cell. Instea
 
 The configured sanitation retained-emission factors are:
 
-| Sanitation tier | Retained-emission factor |  | Interpretation |
-|---|---:|---:|---|
+| Sanitation tier | Retained-emission factor | Interpretation |
+|---|---:|---:|
 | Safe | 0.10 | 10% of the baseline E. coli load remains |
 | Advanced | 0.25 | 25% of the baseline E. coli load remains |
 | Basic | 0.70 | 70% remains in urban cells |
@@ -328,10 +328,10 @@ $$
 
 where:
 
-- \(D_{g,i}\) = ingested dose for population group \(g\) in cell \(i\) [CFU/event interaction];
-- \(C_i\) = pathogen concentration in floodwater in cell \(i\) [CFU/100 mL];
-- \(I_{g,i}\) = ingested floodwater volume for population group \(g\) in cell \(i\) [mL/event interaction];
-- \(100\) converts the ingested volume from mL to units of 100 mL.
+- $D_{g,i}$ = ingested dose for population group $g$ in cell $i$ [CFU/event interaction];
+- $C_i$ = pathogen concentration in floodwater in cell $i$ [CFU/100 mL];
+- $I_{g,i}$ = ingested floodwater volume for population group $g$ in cell $i$ [mL/event interaction];
+- $100$ converts the ingested volume from mL to units of 100 mL.
 
 The resulting dose is then used as input for the dose-response model.
 
@@ -349,6 +349,80 @@ Default parameters ($\alpha$, $\beta$) are for *E. coli* O157:H7 and taken from 
 All rasters are aligned to the population raster grid. Flood depths are area-averaged onto the population grid; urban/rural classes are nearest-neighbour resampled. Outputs are written on the population grid clipped to the common overlap.
 
 ### Model Units and Equations
+```markdown
+For each cell $i$:
+
+1. Emissions
+
+$$
+E_i = P_{\mathrm{total},i} \times r_{\mathrm{Ecoli}} \times S_i \times W_{\mathrm{GDP}}
+$$
+
+where:
+
+- $E_i$ = *E. coli* load in cell $i$ [CFU/event];
+- $P_{\mathrm{total},i}$ = total population in cell $i$ [persons/cell];
+- $r_{\mathrm{Ecoli}}$ = baseline per-capita emitted load [CFU/person/event];
+- $S_i$ = sanitation retained-emission factor [-];
+- $W_{\mathrm{GDP}}$ = GDP-based emission weight [-].
+
+2. Floodwater concentration
+
+$$
+C_i =
+\begin{cases}
+\dfrac{E_i}{A_i \times h_i \times 10{,}000}, & h_i > 0, \\
+\mathrm{NaN}, & h_i \leq 0 \text{ or nodata}.
+\end{cases}
+$$
+
+where:
+
+- $C_i$ = concentration in cell $i$ [CFU/100 mL];
+- $A_i$ = cell area [m²];
+- $h_i$ = flood depth [m];
+- $10{,}000$ = number of 100 mL units per m³.
+
+3. Ingested dose for population group $g$
+
+$$
+I_{g,i} = \text{depth-dependent ingested water volume}
+$$
+
+$$
+D_{g,i} = C_i \times \frac{I_{g,i}}{100}
+$$
+
+where:
+
+- $I_{g,i}$ = ingested floodwater volume for population group $g$ in cell $i$ [mL/event];
+- $D_{g,i}$ = ingested dose for population group $g$ in cell $i$ [CFU/event];
+- $100$ converts the ingested volume from mL to units of 100 mL.
+
+4. Infection probability
+
+$$
+R_{g,i} = 1 - \left(1 + \frac{D_{g,i}}{\beta}\right)^{-\alpha}
+$$
+
+where:
+
+- $R_{g,i}$ = probability of infection for population group $g$ in cell $i$ [-];
+- $\alpha$ and $\beta$ = dose–response model parameters.
+
+5. Expected infected population
+
+$$
+N_{g,i} = R_{g,i} \times P_{g,i}
+$$
+
+where:
+
+- $N_{g,i}$ = expected number of infections in population group $g$ in cell $i$ [persons];
+- $P_{g,i}$ = population of group $g$ in cell $i$ [persons/cell].
+```
+
+
 For each cell i:
 
 1. Emissions
