@@ -6,14 +6,16 @@ build-backend = "setuptools.build_meta"
 name = "d_health"
 description = "Floods and Health Tool: E. coli emissions, exposure, and risk modelling."
 readme = "README.md"
-# Only 3.12 is exercised (pixi pins it, CI runs it). Widen once CI actually
-# tests another version, rather than advertising support nobody has verified.
-requires-python = ">=3.12,<3.13"
+# Only advertise versions CI exercises: each one has a pixi feature below and a
+# `test-py3xx` environment in the tests.yml matrix. Widen this, the classifiers
+# and that matrix together, never one without the others.
+requires-python = ">=3.12,<3.14"
 authors = [{ name = "Panos Athanasiou" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Hydrology",
     "Topic :: Scientific/Engineering :: GIS",
 ]
@@ -122,6 +124,9 @@ warn_unused_ignores = true
 name = "d_health"
 channels = ["conda-forge"]
 platforms = ["win-64"]
+# pixi.lock is format v7, which older pixi cannot read: it re-solves and writes
+# v6 instead, churning the whole lockfile. Fail loudly rather than downgrade it.
+requires-pixi = ">=0.72"
 
 # The native stack comes from conda-forge. `gdal` in particular is here and NOT
 # in [project.dependencies]: it is not reliably installable from PyPI (it needs a
@@ -130,7 +135,8 @@ platforms = ["win-64"]
 # in the package imports `osgeo` directly — rasterio bundles what we need — so it
 # is a environment-level dependency, not a project one.
 [tool.pixi.dependencies]
-python = "3.12.*"
+# The exact minor version comes from a py3xx feature (see [tool.pixi.environments]).
+python = ">=3.12,<3.14"
 numpy = "*"
 gdal = "*"
 rasterio = "*"
@@ -162,7 +168,16 @@ typos = "*"
 pre-commit = "*"
 mypy = "*"
 
+[tool.pixi.feature.py312.dependencies]
+python = "3.12.*"
+
+[tool.pixi.feature.py313.dependencies]
+python = "3.13.*"
+
+# `test` stays on the oldest supported Python so `pixi run tests` keeps its
+# meaning; CI runs every `test*` environment (see .github/workflows/tests.yml).
 [tool.pixi.environments]
-default = { features = ["notebook", "editable", "lint"] }
-test = { features = ["test"] }
-lint = { features = ["lint"] }
+default = { features = ["notebook", "editable", "lint", "py312"] }
+test = { features = ["test", "py312"] }
+test-py313 = { features = ["test", "py313"] }
+lint = { features = ["lint", "py312"] }
