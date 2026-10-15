@@ -29,10 +29,14 @@ def plot_raster(
     NaN-safe: vmin / vmax default to ``np.nanmin`` / ``np.nanmax``.
     """
     fig, ax = plt.subplots(figsize=(10, 6))
+    # All-NaN is legitimate (e.g. pathogen_conc for a flood with no wet cells);
+    # np.nanmin warns on it, so take the range from the finite cells only.
+    finite = np.asarray(data, dtype=np.float64)
+    finite = finite[np.isfinite(finite)]
     if vmin is None:
-        vmin = float(np.nanmin(data)) if np.isfinite(np.nanmin(data)) else 0.0
+        vmin = float(finite.min()) if finite.size else 0.0
     if vmax is None:
-        vmax = float(np.nanmax(data)) if np.isfinite(np.nanmax(data)) else 1.0
+        vmax = float(finite.max()) if finite.size else 1.0
     norm = Normalize(vmin=vmin, vmax=vmax)
     im = ax.imshow(data, cmap=cmap, norm=norm)
     cbar = fig.colorbar(im, ax=ax)

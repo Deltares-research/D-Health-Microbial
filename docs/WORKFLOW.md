@@ -431,8 +431,8 @@ print(f"Config saved: {config_path}")
 
 # ========== MODEL PHASE (Once per scenario) ==========
 result = run_model_from_toml(config_path)
-print(f"Expected_Adults infected: {result.totals['infected_adults']:.0f}")
-print(f"Expected_Children infected: {result.totals['infected_children']:.0f}")
+print(f"Expected infected adults: {result.totals['infected_adults']:.0f}")
+print(f"Expected infected children: {result.totals['infected_children']:.0f}")
 print(f"Expected Total Infected: {sum(result.totals.values()):.0f}")
 
 # ========== ANALYSIS PHASE ==========
