@@ -174,8 +174,8 @@ never both. The suffix below is `.nc` by default and `.tif` when
 | `emissions.<nc\|tif>` | Raster | E. coli load per cell (CFU per flood event) |
 | `pathogen_conc.<nc\|tif>` | Raster | Concentration (CFU per 100 mL; **NaN where dry**) |
 | `dose.<nc\|tif>` | Raster | Ingested dose, per group (CFU/event) |
-| `risk.<nc\|tif>` | Raster | Expected infected population, per group (0-1); calculated as risk × population |
-| `infected.<nc\|tif>` | Raster | Expected Infected population, per group (persons) |
+| `risk.<nc\|tif>` | Raster | Infection probability, per group (0–1) |
+| `infected.<nc\|tif>` | Raster | Expected infected population, per group (persons; risk × population, may be fractional) |
 | `flood_classes.<nc\|tif>` | Raster | Depth classification (0=dry, 1=wet-but-unexposed, 2..n=bands) |
 | `*.png` | PNG | Plots and maps (only when `output.plots = true`) |
 

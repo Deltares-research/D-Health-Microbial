@@ -22,6 +22,13 @@ jobs:
     # matrix here) is the biggest remaining portability win, but it forces a full
     # lockfile re-solve, so it is deliberately not bundled into this PR.
     runs-on: windows-latest
+    # One entry per Python version in pyproject's `requires-python` / classifiers;
+    # each is a pixi environment pinning that version (see [tool.pixi.environments]).
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [test, test-py313]
+    name: test (${{ matrix.environment }})
 
     steps:
       - name: Checkout repository
@@ -29,9 +36,11 @@ jobs:
 
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: ${{ matrix.environment }}
 
       # `tests` now runs pytest with --cov and a fail_under floor (see
       # [tool.coverage.report]), so coverage is enforced rather than merely
       # installed.
       - name: Run test suite
-        run: pixi run tests
+        run: pixi run -e ${{ matrix.environment }} tests

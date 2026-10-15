@@ -8,8 +8,12 @@ Everything runs through [pixi](https://pixi.sh) — the native geospatial stack 
 rasterio) comes from conda-forge, so a bare `python` outside the pixi env crashes on
 import. Always prefix commands with `pixi run`.
 
-Three environments are defined in `pyproject.toml`: `default` (notebook + editable +
-lint), `test`, `lint`. Tasks pick their own default environment.
+Four environments are defined in `pyproject.toml`: `default` (notebook + editable +
+lint), `test`, `lint` — all on Python 3.12 — and `test-py313`. Tasks pick their own
+default environment, so `pixi run tests` is 3.12; `pixi run -e test-py313 tests` is 3.13.
+The Python version comes from a `py3xx` feature; supporting a new one means a feature,
+a `test-py3xx` environment, the `requires-python` bound, a classifier and a CI matrix
+entry, together. The lockfile is format v7 (`requires-pixi = ">=0.72"`).
 
 ```bash
 pixi install                 # create/update .pixi/ from pixi.lock
@@ -35,7 +39,7 @@ geospatial packages like `gdal`, which belong only in `[tool.pixi.dependencies]`
 (listing them as PyPI deps breaks `pip install`).
 
 CI is Windows-only (`platforms = ["win-64"]` in `[tool.pixi.workspace]`); a Linux
-runner has no lockfile to install from. Two workflows: `tests.yml` (`pixi run tests`)
+runner has no lockfile to install from. Two workflows: `tests.yml` (`pixi run tests` in a matrix over the `test*` environments)
 and `precommit.yml`.
 
 ## What the model computes
